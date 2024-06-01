@@ -22,26 +22,24 @@
  *************************************************************************/
 #pragma once
 
-#define fft_swap_ptr_macro(X, Y)         \
-  {                                      \
-    X = ((intptr_t)(X) ^ (intptr_t)(Y)); \
-    Y = ((intptr_t)(X) ^ (intptr_t)(Y)); \
-    X = ((intptr_t)(X) ^ (intptr_t)(Y)); \
-  }
+template <typename DT>
+struct FFT_CPX_T {
+  DT *r;
+  DT *i;
+};
 
-#define FFT_SWAP_PTR(X, Y)                    \
-  {                                           \
-    X = (DT*)((intptr_t)(X) ^ (intptr_t)(Y)); \
-    Y = (DT*)((intptr_t)(X) ^ (intptr_t)(Y)); \
-    X = (DT*)((intptr_t)(X) ^ (intptr_t)(Y)); \
+#define FFT_SWAP_PTR(X, Y)                     \
+  {                                            \
+    X = (DT *)((intptr_t)(X) ^ (intptr_t)(Y)); \
+    Y = (DT *)((intptr_t)(X) ^ (intptr_t)(Y)); \
+    X = (DT *)((intptr_t)(X) ^ (intptr_t)(Y)); \
   }
-
-// #define FFT_SWAP_PTR(A, B) \
-//   {                        \
-//     DT *tmp = A;           \
-//     A = B;                 \
-//     B = tmp;               \
-//   }
+#define FFT_SWAP_VALUE(X, Y) \
+  do {                       \
+    int temp = (X);          \
+    (X) = (Y);               \
+    (Y) = temp;              \
+  } while (0)
 
 #define MLU_CPX_ADD(Z, A, B, VL)   \
   {                                \
@@ -54,12 +52,6 @@
     __bang_sub(Z.r, A.r, B.r, VL); \
     __bang_sub(Z.i, A.i, B.i, VL); \
   }
-
-// #define MLU_CPX_MLA_INPLACE(OUT, IN, TWI, VL) \
-//     { \
-//       __bang_fusion(FUSION_FMA, OUT.r, OUT.r, TWI, IN.r, VL, VL);\
-//       __bang_fusion(FUSION_FMA, OUT.i, OUT.i, TWI, IN.i, VL, VL);\
-//     }
 
 #define MLU_CPX_MLA_INPLACE(OUT, IN, TWI, TEMP, VL) \
   {                                                 \
@@ -97,58 +89,18 @@
     __bang_add(Z.i, RI, IR, VL);                 \
   }
 
-// #define TRANSPOSE_XYZ2YXZ(out, in, X, Y, Z, DT) \
-//         {
-//           FFT_SWAP_PTR(nram_out_r, nram_in_r);
-//           FFT_SWAP_PTR(nram_out_i, nram_in_i);
+#define MLU_CPX_ADD_NEG_I(Z, A, B, VL) \
+  {                                    \
+    __bang_add(Z.r, A.r, B.i, VL);     \
+    __bang_sub(Z.i, A.i, B.r, VL);     \
+  }
 
-//           // [X, Y, Z] -> [Y,
-//           // X, Z]
+#define MLU_CPX_ADD_I(Z, A, B, VL) \
+  {                                \
+    __bang_sub(Z.r, A.r, B.i, VL); \
+    __bang_add(Z.i, A.i, B.r, VL); \
+  }
 
-//           int src_stride0 = Z * sizeof(DT);
-//           int src_segnum1 = Y - 1;
-//           int src_stride1 = Y * Z * sizeof(DT);
-//           int src_segnum2 = X - 1;
-
-//           int dst_stride0 = X * Z * sizeof(DT);
-//           int dst_segnum1 = Y - 1;
-//           int dst_stride1 = Z * sizeof(DT);
-//           int dst_segnum2 = X - 1;
-
-//           __memcpy(nram_out_r, nram_in_r, sizeof(DT) * Z, NRAM2NRAM,
-//                    dst_stride0, dst_segnum1, dst_stride1, dst_segnum2,
-//                    src_stride0, src_segnum1, src_stride1, src_segnum2);
-//           __memcpy(nram_out_i, nram_in_i, sizeof(DT) * Z, NRAM2NRAM,
-//                    dst_stride0, dst_segnum1, dst_stride1, dst_segnum2,
-//                    src_stride0, src_segnum1, src_stride1, src_segnum2);
-//         }
-
-// // [X, Y, Z] -> [Y, X, Z]
-// #define TRANSPOSE_XYZ2YXZ_PAIR(out1, out2, in1, in2, X, Y, Z, DT) \
-//   { \
-//     int src_stride0 = Z * sizeof(DT); \
-//     int src_segnum1 = Y - 1; \
-//     int src_stride1 = Y * Z * sizeof(DT); \
-//     int src_segnum2 = X - 1; \
-//                                                                               \
-//     int dst_stride0 = X * Z * sizeof(DT); \
-//     int dst_segnum1 = Y - 1; \
-//     int dst_stride1 = Z * sizeof(DT); \
-//     int dst_segnum2 = X - 1; \
-//                                                                               \
-//     __memcpy(out1, in1, sizeof(DT) * Z, NRAM2NRAM, dst_stride0, dst_segnum1,
-//     \
-//              dst_stride1, dst_segnum2, src_stride0, src_segnum1, src_stride1,
-//              \
-//              src_segnum2); \
-//     __memcpy(out2, in2, sizeof(DT) * Z, NRAM2NRAM, dst_stride0, dst_segnum1,
-//     \
-//              dst_stride1, dst_segnum2, src_stride0, src_segnum1, src_stride1,
-//              \
-//              src_segnum2); \
-//   }
-
-// [X, Y, Z] -> [Y, X, Z]
 #define TRANSPOSE_XYZ2YXZ_PAIR(out1, out2, in1, in2, X, Y, Z, DT)          \
   {                                                                        \
     int stride0 = (Z) * sizeof(DT);                                        \

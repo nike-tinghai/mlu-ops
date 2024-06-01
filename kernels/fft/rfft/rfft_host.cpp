@@ -368,11 +368,96 @@ static void configureRFFT1dMatmulReserveAddrs(mluOpHandle_t handle,
   }
 }
 
+static void configureRFFT1dWorkspaceAddrs(mluOpHandle_t handle,
+                                          mluOpFFTPlan_t fft_plan, void *input,
+                                          void *workspace, void *output) {
+  VLOG(5) << "Into configure FFT1d Workspace Addrs";
+  const std::string make_plan_api = "[configureFFT1dWorkspaceAddrs]";
+  size_t workspace_size = 0;
+  size_t reservespace_size = 0;
+
+  mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
+
+  size_t out_c_dtype_size = mluOpDataTypeBytes(out_c_dtype);
+
+  int batch = fft_plan->batch;
+  int nfft = fft_plan->n[0];
+
+  size_t buffer_size = batch * out_c_dtype_size * nfft;
+
+  size_t offset = 0;
+  fft_plan->mlu_addrs.buffer_buf = (uint8_t *)workspace + offset;
+  offset += buffer_size * 2;
+
+  if (fft_plan->is_input_contiguous) {
+    fft_plan->mlu_addrs.input = input;
+  } else {
+    fft_plan->mlu_addrs.input = (uint8_t *)workspace + offset;
+    offset += buffer_size;
+  }
+
+  if (fft_plan->is_output_contiguous) {
+    fft_plan->mlu_addrs.output = output;
+  } else {
+    fft_plan->mlu_addrs.output = (uint8_t *)workspace + offset;
+    offset += buffer_size;
+  }
+}
+
+static void configureRFFT2dWorkspaceAddrs(mluOpHandle_t handle,
+                                          mluOpFFTPlan_t fft_plan, void *input,
+                                          void *workspace, void *output) {
+  const std::string make_plan_api = "[configureFFT2dWorkspaceAddrs]";
+
+  mluOpDataType_t in_r_dtype = fft_plan->input_dtype;
+  mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
+
+  size_t in_r_dtype_size = mluOpDataTypeBytes(in_r_dtype);
+  size_t out_c_dtype_size = mluOpDataTypeBytes(out_c_dtype);
+
+  int batch = fft_plan->batch;
+  int _n0 = fft_plan->n[0];
+  int _n1 = fft_plan->n[1];
+
+  if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
+    // rr ri ir ii
+    size_t buffer_size = batch * out_c_dtype_size * _n0 * _n1 * 2;
+    size_t offset = 0;
+    fft_plan->mlu_addrs.input = input;
+    fft_plan->mlu_addrs.output = output;
+    fft_plan->mlu_addrs.buffer_in = (uint8_t *)workspace + offset;
+    offset += buffer_size;
+    fft_plan->mlu_addrs.buffer_out = (uint8_t *)workspace + offset;
+    offset += buffer_size;
+  }
+
+  if (fft_plan->fft_strategy == CNFFT_FUNC_TWO_LEVEL_STOCKHAM) {
+    size_t offset = 0;
+    fft_plan->mlu_addrs.buffer_buf = (uint8_t *)workspace + offset;
+    offset += batch * out_c_dtype_size * _n0 * _n1 * 2;
+
+    if (fft_plan->is_input_contiguous) {
+      fft_plan->mlu_addrs.input = input;
+    } else {
+      fft_plan->mlu_addrs.input = (uint8_t *)workspace + offset;
+      offset += batch * out_c_dtype_size * _n0 * _n1;
+    }
+
+    if (fft_plan->is_output_contiguous) {
+      fft_plan->mlu_addrs.output = output;
+    } else {
+      fft_plan->mlu_addrs.output = (uint8_t *)workspace + offset;
+      offset += batch * out_c_dtype_size * _n0 * _n1;
+    }
+  }
+}
+
 mluOpStatus_t setRFFT1dReserveArea(mluOpHandle_t handle,
                                    mluOpFFTPlan_t fft_plan,
                                    const std::string api) {
   VLOG(5) << "setRFFT1dReserveArea";
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
+  if(fft_plan->prime){
   configureRFFT1dMatmulReserveAddrs(handle, fft_plan);
 
   mluOpDataType_t in_r_dtype = fft_plan->input_dtype;
@@ -444,8 +529,41 @@ mluOpStatus_t setRFFT1dReserveArea(mluOpHandle_t handle,
       status = MLUOP_STATUS_NOT_SUPPORTED;
     }
   }
+
+  }else{
+  mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
+  size_t out_c_dtype_size = mluOpDataTypeBytes(out_c_dtype);
+
+  int nfft = fft_plan->n[0];
+  size_t twiddles_size = out_c_dtype_size   * nfft * 2;
+
+  size_t factors_size = FFT_MAXFACTORS * sizeof(int);  // bytes
+  size_t reservespace_offset = 0;
+  fft_plan->mlu_addrs.twiddles =
+      (uint8_t *)fft_plan->reservespace_addr + reservespace_offset;
+  reservespace_offset += twiddles_size;
+  fft_plan->mlu_addrs.twiddles_end =
+      (uint8_t *)fft_plan->mlu_addrs.twiddles +
+      ((uint8_t *)fft_plan->twiddles_end - (uint8_t *)fft_plan->twiddles);
+  fft_plan->mlu_addrs.dft_matrix =
+      (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
+  reservespace_offset += DFT_TABLE_SIZE;
+
+  fft_plan->mlu_addrs.factors =
+      (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
+  reservespace_offset += factors_size;
+
+  CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.factors, fft_plan->factors,
+                        FFT_MAXFACTORS * sizeof(int), cnrtMemcpyHostToDev));
+  CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
+                        twiddles_size, cnrtMemcpyHostToDev));
+  CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
+                        DFT_TABLE_SIZE, cnrtMemcpyHostToDev));
+
+  }
   return status;
 }
+
 
 static void configureRFFT1dMatmulWorkspaceAddrs(mluOpHandle_t handle,
                                                 mluOpFFTPlan_t fft_plan,
@@ -558,19 +676,36 @@ static mluOpStatus_t makeRFFT1dContiguousInput(mluOpHandle_t handle,
     INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
     const int in_dim_num = 2;
-    int64_t dims[in_dim_num] = {fft_plan->batch, fft_plan->inembed[0]};
-    int64_t strides[in_dim_num] = {fft_plan->idist, fft_plan->istride};
-    status = mluOpSetTensorDescriptorEx_v2(input_desc, MLUOP_LAYOUT_ARRAY,
-                                           fft_plan->input_dtype, in_dim_num,
-                                           dims, strides);
-    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+    if (fft_plan->prime) {
+      int64_t dims[in_dim_num] = {fft_plan->batch, fft_plan->inembed[0]};
+      int64_t strides[in_dim_num] = {fft_plan->idist, fft_plan->istride};
+      status = mluOpSetTensorDescriptorEx_v2(input_desc, MLUOP_LAYOUT_ARRAY,
+                                             fft_plan->input_dtype, in_dim_num,
+                                             dims, strides);
+      INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-    status = mluOpContiguous(handle, input_desc, input,
-                             fft_plan->matmul_addrs.input_contiguous_addr);
-    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+      status = mluOpContiguous(handle, input_desc, input,
+                               fft_plan->matmul_addrs.input_contiguous_addr);
+      INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-    status = mluOpDestroyTensorDescriptor(input_desc);
-    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+      status = mluOpDestroyTensorDescriptor(input_desc);
+      INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    } else {
+      int64_t dims[in_dim_num] = {fft_plan->batch, fft_plan->n[0]};
+      int64_t strides[in_dim_num] = {fft_plan->idist, fft_plan->istride};
+      status = mluOpSetTensorDescriptorEx_v2(input_desc, MLUOP_LAYOUT_ARRAY,
+                                             fft_plan->input_dtype, in_dim_num,
+                                             dims, strides);
+      INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+      status =
+          mluOpContiguous(handle, input_desc, input, fft_plan->mlu_addrs.input);
+      INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+      status = mluOpDestroyTensorDescriptor(input_desc);
+      INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+    }
   }
   return status;
 }
@@ -854,7 +989,9 @@ static mluOpStatus_t makeRFFT1dContiguousOutput(mluOpHandle_t handle,
 
     // set up tensor desc
     const int out_dim_num = 2;
-    int64_t dims[out_dim_num] = {fft_plan->batch, fft_plan->onembed[0]};
+    int64_t dims[out_dim_num] = {
+        fft_plan->batch,
+        (fft_plan->prime) ? fft_plan->onembed[0] : (fft_plan->n[0] / 2 + 1)};
     int64_t strides[out_dim_num] = {fft_plan->odist, fft_plan->ostride};
     status = mluOpSetTensorDescriptor_v2(copy_src_desc, MLUOP_LAYOUT_ARRAY,
                                          out_c_dtype, out_dim_num, dims);
@@ -865,8 +1002,98 @@ static mluOpStatus_t makeRFFT1dContiguousOutput(mluOpHandle_t handle,
     INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
     // copy
-    void *copy_src_addr = fft_plan->matmul_addrs.output_contiguous_addr;
+    void *copy_src_addr = (fft_plan->prime)
+                              ? fft_plan->matmul_addrs.output_contiguous_addr
+                              : fft_plan->mlu_addrs.output;
 
+    DEFINE_CREATE_AND_SET_CNNL_HANDLE(handle,
+                                      cnnl_handle);  // convert to cnnl_handle
+    // convert to cnnl_tensor_descriptor
+    DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(copy_src_desc,
+                                                 cnnl_copy_src_desc);
+    DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(copy_dst_desc,
+                                                 cnnl_copy_dst_desc);
+
+    CALL_CNNL(cnnlCopy(cnnl_handle, cnnl_copy_src_desc, copy_src_addr,
+                       cnnl_copy_dst_desc, output));
+
+    DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_copy_src_desc);
+    DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_copy_dst_desc);
+    DESTROY_CNNL_HANDLE(cnnl_handle);
+  }
+  return status;
+}
+
+// input    : in input
+// output   : in input_contiguous_addr
+static mluOpStatus_t makeRFFT2dContiguousInput(mluOpHandle_t handle,
+                                               mluOpFFTPlan_t fft_plan,
+                                               const void *input,
+                                               void *input_contiguous) {
+  std::string api = "[mluOpExecFFT]";
+  VLOG(5) << "into makeIRFFT2dContiguousInput";
+  auto status = MLUOP_STATUS_SUCCESS;
+  if (!fft_plan->is_input_contiguous &&
+      fft_plan->fft_strategy != CNFFT_FUNC_MANY_DIST1_2D) {
+    VLOG(5) << "launch mluOpContiguous for rfft2d input";
+    mluOpTensorDescriptor_t input_desc;
+    status = mluOpCreateTensorDescriptor(&input_desc);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    const int in_dim_num = 3;
+    int64_t dims[in_dim_num] = {fft_plan->batch, fft_plan->n[0],
+                                fft_plan->n[1]};
+    int64_t strides[in_dim_num] = {fft_plan->idist,
+                                   (fft_plan->istride * fft_plan->inembed[1]),
+                                   fft_plan->istride};
+    status = mluOpSetTensorDescriptorEx_v2(input_desc, MLUOP_LAYOUT_ARRAY,
+                                           fft_plan->input_dtype, in_dim_num,
+                                           dims, strides);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = mluOpContiguous(handle, input_desc, input, input_contiguous);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = mluOpDestroyTensorDescriptor(input_desc);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  }
+  return status;
+}
+
+static mluOpStatus_t makeRFFT2dContiguousOutput(mluOpHandle_t handle,
+                                                mluOpFFTPlan_t fft_plan,
+                                                void *output,
+                                                void *output_contiguous) {
+  std::string api = "[mluOpExecFFT]";
+  mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
+  if (!fft_plan->is_output_contiguous &&
+      fft_plan->fft_strategy != CNFFT_FUNC_MANY_DIST1_2D) {
+    VLOG(5) << "launch copy with stride";
+    mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
+    // create tensor desc
+    mluOpTensorDescriptor_t copy_src_desc, copy_dst_desc;
+    status = mluOpCreateTensorDescriptor(&copy_src_desc);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+    status = mluOpCreateTensorDescriptor(&copy_dst_desc);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    // set up tensor desc
+    const int out_dim_num = 3;
+    int64_t dims[out_dim_num] = {fft_plan->batch, fft_plan->n[0],  // TODO
+                                 fft_plan->n[1] / 2 + 1};
+    int64_t strides[out_dim_num] = {fft_plan->odist,
+                                    fft_plan->ostride * fft_plan->onembed[1],
+                                    fft_plan->ostride};
+    status = mluOpSetTensorDescriptor_v2(copy_src_desc, MLUOP_LAYOUT_ARRAY,
+                                         out_c_dtype, out_dim_num, dims);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+    status =
+        mluOpSetTensorDescriptorEx_v2(copy_dst_desc, MLUOP_LAYOUT_ARRAY,
+                                      out_c_dtype, out_dim_num, dims, strides);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    // void *copy_src_addr = fft_plan->matmul_addrs.output_contiguous_addr;
+    void *copy_src_addr = output_contiguous;
     DEFINE_CREATE_AND_SET_CNNL_HANDLE(handle,
                                       cnnl_handle);  // convert to cnnl_handle
     // convert to cnnl_tensor_descriptor
@@ -890,28 +1117,321 @@ mluOpStatus_t execRFFT1d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
                          void *workspace, void *output) {
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
   std::string api = "[mluOpExecFFT]";
-  configureRFFT1dMatmulWorkspaceAddrs(handle, fft_plan, (void *)input,
-                                      workspace, output);
 
-  status = makeRFFT1dContiguousInput(handle, fft_plan, input);
+  if (fft_plan->prime) {
+    configureRFFT1dMatmulWorkspaceAddrs(handle, fft_plan, (void *)input,
+                                        workspace, output);
+
+    status = makeRFFT1dContiguousInput(handle, fft_plan, input);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = padRFFT1dContiguousInput(handle, fft_plan);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = transposeRFFT1dPaddedInput(handle, fft_plan);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = quantizeRFFT1dPaddedInput(handle, fft_plan);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = computeRFFT1dMatmulResult(handle, fft_plan, scale_factor);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = mergeRFFT1dOutput(handle, fft_plan, scale_factor);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = makeRFFT1dContiguousOutput(handle, fft_plan, output);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  } else {
+    configureRFFT1dWorkspaceAddrs(handle, fft_plan, (void *)input, workspace,
+                                  output);  // TODO
+
+    status = makeRFFT1dContiguousInput(handle, fft_plan, input);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    cnrtFunctionType_t k_type = CNRT_FUNC_TYPE_UNION1;
+    cnrtDim3_t k_dim;
+    k_dim.x = handle->core_num_per_cluster *
+              mluop::runtime::getClusterLimitCapability(handle);
+    k_dim.y = 1;
+    k_dim.z = 1;
+
+    status = execFFTr2c1d(handle, fft_plan, scale_factor);
+
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = makeRFFT1dContiguousOutput(handle, fft_plan, output);
+
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  }
+
+  return status;
+}
+
+mluOpStatus_t execFFTr2c1d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
+                           const float scale_factor) {
+  std::string api = "[execFFTr2c1d]";
+
+  VLOG(5) << "launch r2c fft1d";
+  mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
+
+  cnrtDim3_t k_dim;
+  cnrtFunctionType_t k_type;
+  policyFunc(handle, &k_dim, &k_type);
+
+  // if(fft_plan->twiddles_end != NULL){
+  //  printf("printf1041 fft_plan->twiddles_end != NULL\n");
+  //}
+  kernelFFT1dButterflyR2C(k_dim, k_type, handle->queue, fft_plan, RFFT);
+
+  return status;
+}
+
+// in: [2][n0][2][n1][batch]
+mluOpStatus_t computeFFT2dMatMulColumnR2C(mluOpHandle_t handle,
+                                          mluOpFFTPlan_t fft_plan,
+                                          const float scale_factor,
+                                          int direction) {
+  std::string api = "[computeFFT2dMatMulColumnR2C]";
+  mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
+
+  mluOpDataType_t in_e_dtype = fft_plan->execution_dtype;
+  int batch = fft_plan->batch;
+  int n0 = fft_plan->n[0];
+  int n1 = fft_plan->n[1];
+
+  void *dft_matrix_addr = fft_plan->mlu_addrs.dft_matrix_2d;
+  void *in_addr = fft_plan->mlu_addrs.buffer_in;
+  void *out_addr = fft_plan->mlu_addrs.buffer_out;
+  // void *out_addr = fft_plan->mlu_addrs.output;
+
+  // out[n0 * 2][(n1/2+1)*2][batch] = W[n0 * 2][n0] * In[n0][(n1/2+1)*2][batch]
+  const int m = n0 * 2, k = n0, n = (n1 / 2 + 1) * 2 * batch;
+
+  // create descriptor
+  mluOpTensorDescriptor_t a_desc = nullptr;
+  mluOpTensorDescriptor_t b_desc = nullptr;
+  mluOpTensorDescriptor_t c_desc = nullptr;
+  status = mluOpCreateTensorDescriptor(&a_desc);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpCreateTensorDescriptor(&b_desc);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpCreateTensorDescriptor(&c_desc);
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-  status = padRFFT1dContiguousInput(handle, fft_plan);
+  // set descriptor
+  int64_t a_dims[2] = {m, k};
+  int64_t b_dims[2] = {k, n};
+  int64_t c_dims[2] = {m, n};
+
+  status = mluOpSetTensorDescriptor_v2(a_desc, MLUOP_LAYOUT_ARRAY, in_e_dtype,
+                                       2, a_dims);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptorOnchipDataType(a_desc, in_e_dtype);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptor_v2(b_desc, MLUOP_LAYOUT_ARRAY, in_e_dtype,
+                                       2, b_dims);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptorOnchipDataType(b_desc, in_e_dtype);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptor_v2(c_desc, MLUOP_LAYOUT_ARRAY, in_e_dtype,
+                                       2, c_dims);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptorOnchipDataType(c_desc, in_e_dtype);
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-  status = transposeRFFT1dPaddedInput(handle, fft_plan);
+  DEFINE_CREATE_AND_SET_CNNL_HANDLE(handle,
+                                    cnnl_handle);  // convert to cnnl_handle
+
+  // convert to cnnl_tensor_descriptor
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(a_desc, cnnl_a_desc);
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(b_desc, cnnl_b_desc);
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(c_desc, cnnl_c_desc);
+
+  // c_desc->onchip_dtype = MLUOP_DTYPE_FLOAT;
+  c_desc->onchip_dtype = in_e_dtype;
+  float alpha = 1.0;
+  float beta = 0.0;
+
+  CALL_CNNL(cnnlMatMul(cnnl_handle, false, false, &alpha, cnnl_a_desc,
+                       dft_matrix_addr, cnnl_b_desc, in_addr, &beta,
+                       cnnl_c_desc, out_addr));
+
+  // destroy cnnl descriptor
+  DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_a_desc);
+  DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_b_desc);
+  DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_c_desc);
+
+  DESTROY_CNNL_HANDLE(cnnl_handle);
+  cnrtQueueSync(handle->queue);
+
+  cnrtDim3_t k_dim;
+  cnrtFunctionType_t k_type;
+  policyFunc(handle, &k_dim, &k_type);
+
+  kernelFFTBatchConjMergeR2C(
+      k_dim, k_type, handle->queue, fft_plan->mlu_addrs.output,
+      fft_plan->mlu_addrs.buffer_out, (n1 / 2 + 1) * batch, n0, in_e_dtype);
+  cnrtQueueSync(handle->queue);
+
+  return status;
+}
+
+mluOpStatus_t computeFFT2dMatMulRowR2C(mluOpHandle_t handle,
+                                       mluOpFFTPlan_t fft_plan,
+                                       const float scale_factor,
+                                       int direction) {
+  std::string api = "[computeFFT2dMatMulRowR2C]";
+  mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
+
+  mluOpDataType_t in_e_dtype = fft_plan->execution_dtype;
+  int batch = fft_plan->batch;
+  int n0 = fft_plan->n[0];
+  int n1 = fft_plan->n[1];
+
+  printf("%d, %d, %d\n", batch, n0, n1);
+  void *dft_matrix_addr = fft_plan->mlu_addrs.dft_matrix;
+  void *in_addr = fft_plan->mlu_addrs.input;
+  void *out_addr = fft_plan->mlu_addrs.buffer_in;
+  // void *out_addr = fft_plan->mlu_addrs.output;
+
+  // out[n0][(n1/2+1)*2][batch] = W[(n1/2+1) * 2][n1] * In[n0][n1][batch]
+  const int m = (n1 / 2 + 1) * 2, k = n1, n = batch;
+
+  // create descriptor
+  mluOpTensorDescriptor_t a_desc = nullptr;
+  mluOpTensorDescriptor_t b_desc = nullptr;
+  mluOpTensorDescriptor_t c_desc = nullptr;
+  status = mluOpCreateTensorDescriptor(&a_desc);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpCreateTensorDescriptor(&b_desc);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpCreateTensorDescriptor(&c_desc);
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-  status = quantizeRFFT1dPaddedInput(handle, fft_plan);
+  // set descriptor
+  int64_t a_dims[2] = {m, k};
+  int64_t b_dims[3] = {n0, k, n};
+  int64_t c_dims[3] = {n0, m, n};
+
+  status = mluOpSetTensorDescriptor_v2(a_desc, MLUOP_LAYOUT_ARRAY, in_e_dtype,
+                                       2, a_dims);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptorOnchipDataType(a_desc, in_e_dtype);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptor_v2(b_desc, MLUOP_LAYOUT_ARRAY, in_e_dtype,
+                                       3, b_dims);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptorOnchipDataType(b_desc, in_e_dtype);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptor_v2(c_desc, MLUOP_LAYOUT_ARRAY, in_e_dtype,
+                                       3, c_dims);
+  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  status = mluOpSetTensorDescriptorOnchipDataType(c_desc, in_e_dtype);
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-  status = computeRFFT1dMatmulResult(handle, fft_plan, scale_factor);
+  DEFINE_CREATE_AND_SET_CNNL_HANDLE(handle,
+                                    cnnl_handle);  // convert to cnnl_handle
+
+  // convert to cnnl_tensor_descriptor
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(a_desc, cnnl_a_desc);
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(b_desc, cnnl_b_desc);
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(c_desc, cnnl_c_desc);
+
+  // c_desc->onchip_dtype = MLUOP_DTYPE_FLOAT;
+  c_desc->onchip_dtype = in_e_dtype;
+  float alpha = 1.0;
+  float beta = 0.0;
+
+  cnnlMatMulAlgo_t algo;
+  CALL_CNNL(cnnlMatMulAlgoCreate(&algo));
+  cnnlMatMulDescriptor_t bmm_bcast_desc;
+  CALL_CNNL(cnnlMatMulDescCreate(&bmm_bcast_desc));
+
+  cnnlMatMulHeuristicResult_t heuristic_result;
+  CALL_CNNL(cnnlCreateMatMulHeuristicResult(&heuristic_result));
+
+  int requested_algo_count = 1, return_algo_count = 0;
+  float *workspace;
+  size_t workspace_size;
+  cnnlGetBatchMatMulAlgoHeuristic(
+      cnnl_handle, bmm_bcast_desc, cnnl_a_desc, cnnl_b_desc, cnnl_c_desc, NULL,
+      requested_algo_count, &heuristic_result, &return_algo_count);
+
+  cnnlGetBatchMatMulHeuristicResult(heuristic_result, algo, &workspace_size);
+
+  if (workspace_size > 0) {
+    CNRT_CHECK(cnrtMalloc((void **)&workspace, workspace_size));
+  } else {
+    CNRT_CHECK(cnrtMalloc((void **)&workspace, m * n * sizeof(float)));
+  }
+
+  CALL_CNNL(cnnlBatchMatMulBCast_v2(cnnl_handle, bmm_bcast_desc, algo, &alpha,
+                                    cnnl_a_desc, dft_matrix_addr, cnnl_b_desc,
+                                    in_addr, &beta, cnnl_c_desc, out_addr,
+                                    (void *)workspace, workspace_size));
+  // destroy cnnl descriptor
+  DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_a_desc);
+  DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_b_desc);
+  DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_c_desc);
+
+  DESTROY_CNNL_HANDLE(cnnl_handle);
+  // cnrtQueueSync(handle->queue);
+
+  return status;
+}
+
+mluOpStatus_t execRFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
+                         const void *input, const float scale_factor,
+                         void *workspace, void *output) {
+  mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
+  std::string api = "[mluOpExecFFT]";
+
+  configureRFFT2dWorkspaceAddrs(handle, fft_plan, (void *)input, workspace,
+                                output);
+
+  // if (fft_plan->fft_strategy == CNFFT_FUNC_TWO_LEVEL_STOCKHAM) {
+  cnrtDim3_t k_dim;
+  cnrtFunctionType_t k_type;
+  policyFunc(handle, &k_dim, &k_type);
+  uint64_t idist = 0, odist = 0;  // bytes
+  mluOpDataType_t in_r_dtype = fft_plan->input_dtype;
+  mluOpDataType_t in_c_dtype = fft_plan->output_dtype;
+  size_t in_r_dtype_size = mluOpDataTypeBytes(in_r_dtype);
+  size_t in_c_dtype_size = mluOpDataTypeBytes(in_c_dtype);
+  // outplace
+  idist = in_r_dtype_size * fft_plan->n[0] * fft_plan->n[1];
+  odist = in_c_dtype_size * fft_plan->n[0] * (fft_plan->n[1] / 2 + 1);
+  status = makeRFFT2dContiguousInput(handle, fft_plan, input,
+                                     fft_plan->mlu_addrs.input);
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-  status = mergeRFFT1dOutput(handle, fft_plan, scale_factor);
+  for (int batch_id = 0; batch_id < fft_plan->batch; batch_id++) {
+    status =
+        kernelRFFT2dButterflyRow(k_dim, k_type, handle->queue, fft_plan, RFFT);
+
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    status = kernelRFFT2dButterflyColumn(k_dim, k_type, handle->queue, fft_plan,
+                                         FFT_IFFT);
+    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+    fft_plan->mlu_addrs.input =
+        (void *)((uint64_t)(fft_plan->mlu_addrs.input) + idist);
+    fft_plan->mlu_addrs.output =
+        (void *)((uint64_t)(fft_plan->mlu_addrs.output) + odist);
+  }
+
+  status = makeRFFT2dContiguousOutput(handle, fft_plan, output,
+                                      fft_plan->mlu_addrs.output);
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
-  status = makeRFFT1dContiguousOutput(handle, fft_plan, output);
-  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  //} else if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
+  //  status = computeFFT2dMatMulRowR2C(handle, fft_plan, scale_factor);
+  //  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+
+  //  status = computeFFT2dMatMulColumnR2C(handle, fft_plan, scale_factor);
+  //  INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
+  //}
   return status;
 }
