@@ -374,7 +374,8 @@ __mlu_func__ void computeGenericButterflyLaststageMat(
       radix);
 }
 
-// Compute the generic butterfly for the first stage using matrix operations from real to complex (R2C)
+// Compute the generic butterfly for the first stage using matrix operations
+// from real to complex (R2C)
 template <typename DT>
 __mlu_func__ void computeGenericButterflyFirststageMatR2C(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_scratch,
@@ -454,7 +455,8 @@ __mlu_func__ void computeGenericButterflyFirststageMatR2C(
   __sync_move();
 }
 
-// Compute the generic butterfly for other stages using matrix operations from real to complex (R2C)
+// Compute the generic butterfly for other stages using matrix operations from
+// real to complex (R2C)
 template <typename DT>
 __mlu_func__ void computeGenericButterflyOtherstagesMatR2C(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
@@ -656,7 +658,8 @@ __mlu_func__ void computeGenericButterflyOtherstagesMatR2C(
   }
 }
 
-// Compute the generic butterfly for the last stage using matrix operations from real to complex (R2C)
+// Compute the generic butterfly for the last stage using matrix operations from
+// real to complex (R2C)
 template <typename DT>
 __mlu_func__ void computeGenericButterflyLaststageMatR2C(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,

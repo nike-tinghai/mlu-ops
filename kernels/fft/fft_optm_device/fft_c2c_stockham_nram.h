@@ -307,7 +307,8 @@ __mlu_func__ void computeLargeButterflyFirststage(
   }
 }
 
-// Compute the large butterfly for the first stage using batch ping-pong processing on the primary chip
+// Compute the large butterfly for the first stage using batch ping-pong
+// processing on the primary chip
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
     DT *output, DT *input, const int large_radix, int large_in_stride,
@@ -1460,7 +1461,8 @@ __mlu_func__ void computeLargeButterflyLaststageBatchPingpong(
       load_once_twiddles);
 }
 
-// Compute the large butterfly for the last stage using batch ping-pong processing
+// Compute the large butterfly for the last stage using batch ping-pong
+// processing
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageColumn(
     DT *output, DT *input, const int large_radix, int large_in_stride,

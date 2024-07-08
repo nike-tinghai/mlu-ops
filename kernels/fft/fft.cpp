@@ -95,8 +95,8 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateTwiddlesLine(
       twiddles[(butterfly_num * (k - 1) + j)] = (DT)cos(phase);  // r
       twiddles[(butterfly_num * (k - 1) + j) + butterfly_num * (radix - 1)] =
           (DT)sin(phase);  // i
-    }  // radix
-  }    // butterfly_num
+    }                      // radix
+  }                        // butterfly_num
   return MLUOP_STATUS_SUCCESS;
 }
 
@@ -136,11 +136,10 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateTwiddlesLineColumn(
       twiddles[((radix - 1) * k + (j - 1))] = (DT)cos(phase);  // r
       twiddles[((radix - 1) * k + (j - 1)) + butterfly_num * (radix - 1)] =
           (DT)sin(phase);  // i
-    }  // radix
-  }    // butterfly_num
+    }                      // radix
+  }                        // butterfly_num
   return MLUOP_STATUS_SUCCESS;
 }
-
 
 // The control interfaces of the generation of FFT's twiddles.
 template <typename DT>
@@ -196,7 +195,7 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateTwiddles(mluOpFFTPlan_t fft_plan,
   return MLUOP_STATUS_SUCCESS;
 }
 
-// The control interfaces of the generation of RFFT's twiddles. 
+// The control interfaces of the generation of RFFT's twiddles.
 template <typename DT>
 mluOpStatus_t MLUOP_WIN_API fftGenerateR2CTwiddles(void *&_twiddles,
                                                    void *&_twiddles_end,
@@ -561,7 +560,6 @@ mluOpStatus_t MLUOP_WIN_API fftFactor(int _n, int *facbuf,
   int large_radix = 1;
   facbuf += small_factors_offset;
   while (n > 1) {
-
     switch (_n) {
       case 128:
         if (n % 16 == 0) {
@@ -793,7 +791,7 @@ mluOpStatus_t MLUOP_WIN_API fftFactor(int _n, int *facbuf,
 // Head info:
 // facbuf[0] = stage_num;
 // facbuf[1] = _n;
-// Stages info: 
+// Stages info:
 // facbuf[5 * stage_num + 0] = r;
 // facbuf[5 * stage_num + 1] = section_num;
 // facbuf[5 * stage_num + 2] = out_stride;
@@ -1063,9 +1061,9 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
     facbuf[5 * stage_num + 3] = in_stride;
     facbuf[5 * stage_num + 4] = small_factors_offset;
     int *cur_facbuf = &facbuf[small_factors_offset];
-    status = fftFactor(r, facbuf, small_factors_offset, factor_type, large_count);
-          INTERNAL_CHECK("[fftTwoStepFactor]",
-                     status == MLUOP_STATUS_SUCCESS);
+    status =
+        fftFactor(r, facbuf, small_factors_offset, factor_type, large_count);
+    INTERNAL_CHECK("[fftTwoStepFactor]", status == MLUOP_STATUS_SUCCESS);
     setMaxParallelNum(fft_plan, cur_facbuf, stage_num, r);
 
     out_stride *= r;
@@ -2719,7 +2717,7 @@ mluOpStatus_t MLUOP_WIN_API mluOpSetFFTReserveArea(mluOpHandle_t handle,
     case CNFFT_HALF2COMPLEX_HALF:
     case CNFFT_FLOAT2COMPLEX_FLOAT: {
       if (fft_plan->rank == 1) {
-          status = setRFFT1dReserveArea(handle, fft_plan, api);
+        status = setRFFT1dReserveArea(handle, fft_plan, api);
       } else if (fft_plan->rank == 2) {
         status = setFFT2dReserveArea(handle, fft_plan, api);
       } else {
@@ -2730,7 +2728,7 @@ mluOpStatus_t MLUOP_WIN_API mluOpSetFFTReserveArea(mluOpHandle_t handle,
     case CNFFT_COMPLEX_HALF2COMPLEX_HALF:
     case CNFFT_COMPLEX_FLOAT2COMPLEX_FLOAT: {
       if (fft_plan->rank == 1) {
-          status = setFFT1dReserveArea(handle, fft_plan, api);
+        status = setFFT1dReserveArea(handle, fft_plan, api);
 
       } else if (fft_plan->rank == 2) {
         status = setFFT2dReserveArea(handle, fft_plan, api);
@@ -2742,7 +2740,7 @@ mluOpStatus_t MLUOP_WIN_API mluOpSetFFTReserveArea(mluOpHandle_t handle,
     case CNFFT_COMPLEX_HALF2HALF:
     case CNFFT_COMPLEX_FLOAT2FLOAT: {
       if (fft_plan->rank == 1) {
-          status = setIRFFT1dReserveArea(handle, fft_plan, api);
+        status = setIRFFT1dReserveArea(handle, fft_plan, api);
       } else if (fft_plan->rank == 2) {
         status = setFFT2dReserveArea(handle, fft_plan, api);
       } else {

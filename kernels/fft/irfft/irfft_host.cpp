@@ -484,100 +484,98 @@ mluOpStatus_t setIRFFT1dReserveArea(mluOpHandle_t handle,
                                     mluOpFFTPlan_t fft_plan,
                                     const std::string api) {
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
-  if(fft_plan->prime) {
-  configureIRFFT1dMatmulReserveAddrs(handle, fft_plan);
+  if (fft_plan->prime) {
+    configureIRFFT1dMatmulReserveAddrs(handle, fft_plan);
 
-  mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
-  mluOpDataType_t in_r_dtype = (in_c_dtype == MLUOP_DTYPE_COMPLEX_HALF)
-                                   ? MLUOP_DTYPE_HALF
-                                   : MLUOP_DTYPE_FLOAT;
-  mluOpDataType_t in_e_dtype = fft_plan->execution_dtype;
-  int n = fft_plan->n[0];
-  const int dft_mat_times = COMPLEX;
+    mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
+    mluOpDataType_t in_r_dtype = (in_c_dtype == MLUOP_DTYPE_COMPLEX_HALF)
+                                     ? MLUOP_DTYPE_HALF
+                                     : MLUOP_DTYPE_FLOAT;
+    mluOpDataType_t in_e_dtype = fft_plan->execution_dtype;
+    int n = fft_plan->n[0];
+    const int dft_mat_times = COMPLEX;
 
-  const unsigned int cluster_number =
-      mluop::runtime::getClusterLimitCapability(handle);
-  const unsigned int core_dim = handle->core_num_per_cluster;
-  cnrtDim3_t k_dim = {core_dim, cluster_number, 1};
-  cnrtFunctionType_t k_type = CNRT_FUNC_TYPE_BLOCK;
+    const unsigned int cluster_number =
+        mluop::runtime::getClusterLimitCapability(handle);
+    const unsigned int core_dim = handle->core_num_per_cluster;
+    cnrtDim3_t k_dim = {core_dim, cluster_number, 1};
+    cnrtFunctionType_t k_type = CNRT_FUNC_TYPE_BLOCK;
 
-  switch (fft_plan->fft_strategy) {
-    case CNFFT_FUNC_MATMUL: {
-      // Matmul Matrix : 2 * [n, (n / 2 + 1)]
-      int dim0 = n;
-      int dim1 = (n / 2 + 1);
-      int dft_mat_num = dft_mat_times * dim0 * dim1;
-      kernelGenerateIRFFTHalfDFTMatrix(k_dim, k_type, handle->queue, fft_plan,
-                                       in_r_dtype, n);
-      status = fftQuantizePositionScale(
-          handle, dft_mat_num, in_r_dtype, in_e_dtype,
-          fft_plan->matmul_addrs.dft_matrix_addr,
-          fft_plan->matmul_addrs.dft_pos_addr,
-          fft_plan->matmul_addrs.dft_scale_addr,
-          fft_plan->matmul_addrs.dft_quantize_workspace_addr,
-          fft_plan->matmul_addrs.dft_quantize_workspace_size, api);
-      INTERNAL_CHECK("[mluOpSetFFTReserveArea]",
-                     status == MLUOP_STATUS_SUCCESS);
-    }; break;
-    case CNFFT_FUNC_COOLEY_TUKEY:
-    case CNFFT_FUNC_STOCKHAM: {
-      // Matmul Matrix : 2 * [L, L]
-      int L = fft_plan->L;
-      int dim0 = L;
-      int dim1 = L;
-      int dft_mat_num = dft_mat_times * dim0 * dim1;
-      kernelGenerateIRFFTFullDFTMatrix(k_dim, k_type, handle->queue, fft_plan,
-                                       in_r_dtype, L);
+    switch (fft_plan->fft_strategy) {
+      case CNFFT_FUNC_MATMUL: {
+        // Matmul Matrix : 2 * [n, (n / 2 + 1)]
+        int dim0 = n;
+        int dim1 = (n / 2 + 1);
+        int dft_mat_num = dft_mat_times * dim0 * dim1;
+        kernelGenerateIRFFTHalfDFTMatrix(k_dim, k_type, handle->queue, fft_plan,
+                                         in_r_dtype, n);
+        status = fftQuantizePositionScale(
+            handle, dft_mat_num, in_r_dtype, in_e_dtype,
+            fft_plan->matmul_addrs.dft_matrix_addr,
+            fft_plan->matmul_addrs.dft_pos_addr,
+            fft_plan->matmul_addrs.dft_scale_addr,
+            fft_plan->matmul_addrs.dft_quantize_workspace_addr,
+            fft_plan->matmul_addrs.dft_quantize_workspace_size, api);
+        INTERNAL_CHECK("[mluOpSetFFTReserveArea]",
+                       status == MLUOP_STATUS_SUCCESS);
+      }; break;
+      case CNFFT_FUNC_COOLEY_TUKEY:
+      case CNFFT_FUNC_STOCKHAM: {
+        // Matmul Matrix : 2 * [L, L]
+        int L = fft_plan->L;
+        int dim0 = L;
+        int dim1 = L;
+        int dft_mat_num = dft_mat_times * dim0 * dim1;
+        kernelGenerateIRFFTFullDFTMatrix(k_dim, k_type, handle->queue, fft_plan,
+                                         in_r_dtype, L);
 
-      status = fftQuantizePositionScale(
-          handle, dft_mat_num, in_r_dtype, in_e_dtype,
-          fft_plan->matmul_addrs.dft_matrix_addr,
-          fft_plan->matmul_addrs.dft_pos_addr,
-          fft_plan->matmul_addrs.dft_scale_addr,
-          fft_plan->matmul_addrs.dft_quantize_workspace_addr,
-          fft_plan->matmul_addrs.dft_quantize_workspace_size, api);
-      INTERNAL_CHECK("[mluOpSetFFTReserveArea]",
-                     status == MLUOP_STATUS_SUCCESS);
-    }; break;
-    default: {
-      status = MLUOP_STATUS_NOT_SUPPORTED;
+        status = fftQuantizePositionScale(
+            handle, dft_mat_num, in_r_dtype, in_e_dtype,
+            fft_plan->matmul_addrs.dft_matrix_addr,
+            fft_plan->matmul_addrs.dft_pos_addr,
+            fft_plan->matmul_addrs.dft_scale_addr,
+            fft_plan->matmul_addrs.dft_quantize_workspace_addr,
+            fft_plan->matmul_addrs.dft_quantize_workspace_size, api);
+        INTERNAL_CHECK("[mluOpSetFFTReserveArea]",
+                       status == MLUOP_STATUS_SUCCESS);
+      }; break;
+      default: {
+        status = MLUOP_STATUS_NOT_SUPPORTED;
+      }
     }
-  }
 
-  }else{
-  mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
-  size_t in_c_dtype_size = mluOpDataTypeBytes(in_c_dtype);
+  } else {
+    mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
+    size_t in_c_dtype_size = mluOpDataTypeBytes(in_c_dtype);
 
-  int nfft = fft_plan->n[0];
-  size_t factors_size = FFT_MAXFACTORS * sizeof(int);  // bytes
-  size_t twiddles_size = in_c_dtype_size  * nfft * 2;
-  size_t reservespace_offset = 0;
-  fft_plan->mlu_addrs.twiddles =
-      (uint8_t *)fft_plan->reservespace_addr + reservespace_offset;
-  reservespace_offset += twiddles_size;
-  fft_plan->mlu_addrs.twiddles_end =
-      (uint8_t *)fft_plan->mlu_addrs.twiddles +
-      ((uint8_t *)fft_plan->twiddles_end - (uint8_t *)fft_plan->twiddles);
+    int nfft = fft_plan->n[0];
+    size_t factors_size = FFT_MAXFACTORS * sizeof(int);  // bytes
+    size_t twiddles_size = in_c_dtype_size * nfft * 2;
+    size_t reservespace_offset = 0;
+    fft_plan->mlu_addrs.twiddles =
+        (uint8_t *)fft_plan->reservespace_addr + reservespace_offset;
+    reservespace_offset += twiddles_size;
+    fft_plan->mlu_addrs.twiddles_end =
+        (uint8_t *)fft_plan->mlu_addrs.twiddles +
+        ((uint8_t *)fft_plan->twiddles_end - (uint8_t *)fft_plan->twiddles);
 
-  fft_plan->mlu_addrs.dft_matrix =
-      (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
-  reservespace_offset += DFT_TABLE_SIZE;
+    fft_plan->mlu_addrs.dft_matrix =
+        (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
+    reservespace_offset += DFT_TABLE_SIZE;
 
-  fft_plan->mlu_addrs.factors =
-      (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
-  reservespace_offset += factors_size;
+    fft_plan->mlu_addrs.factors =
+        (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
+    reservespace_offset += factors_size;
 
-  CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.factors, fft_plan->factors,
-                        FFT_MAXFACTORS * sizeof(int), cnrtMemcpyHostToDev));
-  CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
-                        twiddles_size, cnrtMemcpyHostToDev));
-  CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
-                        DFT_TABLE_SIZE, cnrtMemcpyHostToDev));
-
+    CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.factors, fft_plan->factors,
+                          FFT_MAXFACTORS * sizeof(int), cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
+                          twiddles_size, cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
+                          DFT_TABLE_SIZE, cnrtMemcpyHostToDev));
   }
   return status;
 }
-
 
 static void configureIRFFT1dMatmulWorkspaceAddrs(mluOpHandle_t handle,
                                                  mluOpFFTPlan_t fft_plan,

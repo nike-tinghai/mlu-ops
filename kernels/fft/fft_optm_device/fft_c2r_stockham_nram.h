@@ -24,7 +24,8 @@
 #include "kernels/fft/fft_optm_device/fft_generic_butterfly.h"
 #include "kernels/fft/fft_optm_device/fft_vector_butterfly.h"
 
-// Compute the large butterfly for the last stage using batch ping-pong processing from complex to real (C2R)
+// Compute the large butterfly for the last stage using batch ping-pong
+// processing from complex to real (C2R)
 template <typename DT>
 __mlu_func__ void computeLargeButterflyLaststageBatchPingpongC2R(
     DT *output, DT *input, const int large_radix, int large_out_stride,
@@ -368,7 +369,8 @@ __mlu_func__ void computeLargeButterflyLaststageBatchPingpongC2R(
   }
 }
 
-// Compute the large butterfly for the subsequent stages using batch ping-pong processing from complex to real (C2R)
+// Compute the large butterfly for the subsequent stages using batch ping-pong
+// processing from complex to real (C2R)
 template <typename DT>
 __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpongC2R(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
@@ -814,7 +816,8 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpongC2R(
   }
 }
 
-// Compute the large butterfly for the first stage using batch ping-pong processing from complex to real (C2R)
+// Compute the large butterfly for the first stage using batch ping-pong
+// processing from complex to real (C2R)
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageBatchPingpongC2R(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
