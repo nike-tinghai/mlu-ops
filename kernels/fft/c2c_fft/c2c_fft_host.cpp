@@ -1847,6 +1847,11 @@ mluOpStatus_t execFFTc2c2d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
       fft_plan->mlu_addrs.output =
           (void *)((uint64_t)(fft_plan->mlu_addrs.output) + odist);
     }
+    fft_plan->mlu_addrs.input = (void *)((uint64_t)(fft_plan->mlu_addrs.input) -
+                                         fft_plan->batch * idist);
+    fft_plan->mlu_addrs.output =
+        (void *)((uint64_t)(fft_plan->mlu_addrs.output) -
+                 fft_plan->batch * odist);
   }
 
   if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
@@ -1865,28 +1870,6 @@ mluOpStatus_t execFFTc2c2d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
       status = computeFFT2dMatMulRow(handle, fft_plan, scale_factor, direction);
       INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
     }
-  }
-  return status;
-}
-
-mluOpStatus_t execFFTr2c2d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
-                           const float scale_factor, int direction) {
-  std::string api = "[execFFTr2c2d]";
-
-  VLOG(5) << "launch r2c fft2d";
-  mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
-  if (fft_plan->fft_strategy == CNFFT_FUNC_TWO_LEVEL_STOCKHAM) {
-    // CNFFT_FUNC_TWO_LEVEL_STOCKHAM
-  }
-
-  if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
-    status =
-        computeFFT2dMatMulRowR2C(handle, fft_plan, scale_factor, direction);
-    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
-
-    status =
-        computeFFT2dMatMulColumnR2C(handle, fft_plan, scale_factor, direction);
-    INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
   }
   return status;
 }
@@ -1957,27 +1940,10 @@ mluOpStatus_t execFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
       fft_plan->fft_strategy != CNFFT_FUNC_MANY_DIST1_2D) {
     status = makeFFT2dContiguousInput(handle, fft_plan, input,
                                       fft_plan->mlu_addrs.input);
-    printf("makeFFT2dContiguousInput\n");
     INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
   }
 
-  switch (fft_plan->fft_type) {
-    case CNFFT_HALF2COMPLEX_HALF:
-    case CNFFT_FLOAT2COMPLEX_FLOAT: {
-      // R2C
-      status = execFFTr2c2d(handle, fft_plan, scale_factor, direction);
-    } break;
-    case CNFFT_COMPLEX_HALF2COMPLEX_HALF:
-    case CNFFT_COMPLEX_FLOAT2COMPLEX_FLOAT: {
-      // C2C
-      status = execFFTc2c2d(handle, fft_plan, scale_factor, direction);
-    }; break;
-    default: {
-      LOG(ERROR) << api << ": invalid 2d fft type.";
-      status = MLUOP_STATUS_NOT_SUPPORTED;
-      return status;
-    }
-  }
+  status = execFFTc2c2d(handle, fft_plan, scale_factor, direction);
 
   INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
@@ -2048,19 +2014,38 @@ mluOpStatus_t computeFFT2dMatMulColumn(mluOpHandle_t handle,
   DEFINE_CREATE_AND_SET_CNNL_HANDLE(handle,
                                     cnnl_handle);  // convert to cnnl_handle
 
+  cnnlMatMulDescriptor_t matmul_desc;
+  cnnlMatMulAlgo_t matmul_algo;
+  cnnlMatMulHeuristicResult_t heuristic_result;
+  size_t matmul_ws_size = 0, workspace_size = 0;
+
+  CALL_CNNL(cnnlMatMulDescCreate(&matmul_desc));
+  CALL_CNNL(cnnlMatMulAlgoCreate(&matmul_algo));
+  CALL_CNNL(cnnlCreateMatMulHeuristicResult(&heuristic_result));
+  int32_t requested_algo_count = 1, return_algo_count = 0;
+
   // convert to cnnl_tensor_descriptor
   DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(a_desc, cnnl_a_desc);
   DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(b_desc, cnnl_b_desc);
   DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(c_desc, cnnl_c_desc);
-
-  // c_desc->onchip_dtype = MLUOP_DTYPE_FLOAT;
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(c_desc, cnnl_d_desc);
   c_desc->onchip_dtype = in_e_dtype;
+  CALL_CNNL(cnnlGetMatMulAlgoHeuristic(cnnl_handle, matmul_desc, cnnl_a_desc,
+                                       cnnl_b_desc, cnnl_c_desc, cnnl_d_desc,
+                                       nullptr, requested_algo_count,
+                                       &heuristic_result, &return_algo_count));
+  CALL_CNNL(cnnlGetMatMulHeuristicResult(heuristic_result, matmul_algo,
+                                         &workspace_size));
+  float *workspace = nullptr;
+  if (workspace_size > 0) {
+    CNRT_CHECK(cnrtMalloc((void **)&workspace, workspace_size));
+  }
   float alpha = 1.0;
   float beta = 0.0;
-
-  CALL_CNNL(cnnlMatMul(cnnl_handle, false, false, &alpha, cnnl_a_desc,
-                       dft_matrix_addr, cnnl_b_desc, in_addr, &beta,
-                       cnnl_c_desc, out_addr));
+  CALL_CNNL(cnnlMatMul_v2(cnnl_handle, matmul_desc, matmul_algo, &alpha,
+                          cnnl_a_desc, dft_matrix_addr, cnnl_b_desc, in_addr,
+                          &beta, cnnl_c_desc, out_addr, workspace,
+                          workspace_size, cnnl_d_desc, out_addr));
 
   // destroy cnnl descriptor
   DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_a_desc);

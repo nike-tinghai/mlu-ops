@@ -41,66 +41,6 @@ struct FFT_CPX_T {
     (Y) = temp;              \
   } while (0)
 
-#define MLU_CPX_ADD(Z, A, B, VL)   \
-  {                                \
-    __bang_add(Z.r, A.r, B.r, VL); \
-    __bang_add(Z.i, A.i, B.i, VL); \
-  }
-
-#define MLU_CPX_SUB(Z, A, B, VL)   \
-  {                                \
-    __bang_sub(Z.r, A.r, B.r, VL); \
-    __bang_sub(Z.i, A.i, B.i, VL); \
-  }
-
-#define MLU_CPX_MLA_INPLACE(OUT, IN, TWI, TEMP, VL) \
-  {                                                 \
-    MLU_CPX_MUL_S(TEMP, IN, TWI, VL)                \
-    MLU_CPX_ADD(OUT, OUT, TEMP, VL)                 \
-  }
-
-#define MLU_CPX_MLA_OUTPLACE(OUT, IN1, IN2, TWR, VL)             \
-  {                                                              \
-    __bang_fusion(FUSION_FMA, OUT.r, IN2.r, TWR, IN1.r, VL, VL); \
-    __bang_fusion(FUSION_FMA, OUT.i, IN2.i, TWR, IN1.i, VL, VL); \
-  }
-
-#define MLU_CPX_MUL_S(OUT, IN, TWI, VL)      \
-  {                                          \
-    __bang_mul_scalar(OUT.r, IN.r, TWI, VL); \
-    __bang_mul_scalar(OUT.i, IN.i, TWI, VL); \
-  }
-
-#define MLU_CPX_ODD_OUT(HEAD, TAIL, _A, _B, VL) \
-  {                                             \
-    __bang_sub(HEAD.r, _A.r, _B.i, VL);         \
-    __bang_add(HEAD.i, _A.i, _B.r, VL);         \
-    __bang_add(TAIL.r, _A.r, _B.i, VL);         \
-    __bang_sub(TAIL.i, _A.i, _B.r, VL);         \
-  }
-
-#define MLU_CPX_MUL(Z, A, B, RR, II, RI, IR, VL) \
-  {                                              \
-    __bang_mul(RR, A.r, B.r, VL);                \
-    __bang_mul(II, A.i, B.i, VL);                \
-    __bang_mul(RI, A.r, B.i, VL);                \
-    __bang_mul(IR, A.i, B.r, VL);                \
-    __bang_sub(Z.r, RR, II, VL);                 \
-    __bang_add(Z.i, RI, IR, VL);                 \
-  }
-
-#define MLU_CPX_ADD_NEG_I(Z, A, B, VL) \
-  {                                    \
-    __bang_add(Z.r, A.r, B.i, VL);     \
-    __bang_sub(Z.i, A.i, B.r, VL);     \
-  }
-
-#define MLU_CPX_ADD_I(Z, A, B, VL) \
-  {                                \
-    __bang_sub(Z.r, A.r, B.i, VL); \
-    __bang_add(Z.i, A.i, B.r, VL); \
-  }
-
 #define TRANSPOSE_XYZ2YXZ_PAIR(out1, out2, in1, in2, X, Y, Z, DT)          \
   {                                                                        \
     int stride0 = (Z) * sizeof(DT);                                        \

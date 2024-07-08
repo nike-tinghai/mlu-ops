@@ -133,7 +133,6 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
   if (__is_mpu()) {
     return;
   }
-
   const DT *_twiddles = twiddles;
 
   DT *extra_buffer;

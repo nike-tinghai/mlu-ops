@@ -890,27 +890,32 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
           //   break;
 
         case 6000:
-          r = 6000;
+          if (factor_type == CNFFT_HALF2COMPLEX_HALF ||
+              factor_type == CNFFT_FLOAT2COMPLEX_FLOAT) {
+            if (n % 300 == 0) {
+              r = 300;
+            } else if ((n % 20) == 0) {
+              r = 20;
+            }
+
+          } else {
+            r = 6000;
+          }
           break;
-          // case 6000:
-          // if (n % 300 == 0) {
-          // r = 300;
-          //} else if ((n % 20) == 0) {
-          // r = 20;
-          //}
-          // break;
 
         case 7000:
-          r = 7000;
-          break;
+          if (factor_type == CNFFT_HALF2COMPLEX_HALF ||
+              factor_type == CNFFT_FLOAT2COMPLEX_FLOAT) {
+            if (n % 280 == 0) {
+              r = 280;
+            } else if ((n % 25) == 0) {
+              r = 25;
+            }
 
-          // case 7000:
-          //  if (n % 280 == 0) {
-          //    r = 280;
-          //  } else if ((n % 25) == 0) {
-          //    r = 25;
-          //  }
-          //  break;
+          } else {
+            r = 7000;
+          }
+          break;
 
         case 8000:
           if (n % 160 == 0) {
@@ -1790,19 +1795,19 @@ mluOpStatus_t MLUOP_WIN_API mluOpAllocateRFFT2D(
   const std::string make_plan_api = "[mluOpAllocateRFFT2D]";
   size_t workspace_size = 0, reservespace_size = 0;
 
-  mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
-  size_t in_c_dtype_size = mluOpDataTypeBytes(in_c_dtype);
+  mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
+  size_t out_c_dtype_size = mluOpDataTypeBytes(out_c_dtype);
 
   int batch = fft_plan->batch;
-  size_t buffer_size = batch * in_c_dtype_size * _n0 * _n1;
+  size_t buffer_size = batch * out_c_dtype_size * _n0 * _n1;
 
-  size_t twiddles_size = in_c_dtype_size * _n0;
-  size_t twiddles_size_2d = in_c_dtype_size * _n1;
+  size_t twiddles_size = out_c_dtype_size * _n0;
+  size_t twiddles_size_2d = out_c_dtype_size * _n1;
 
   if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
-    reservespace_size = in_c_dtype_size * _n0 * _n0 +
-                        in_c_dtype_size * _n1 * _n1; /* DFT matrix */
-    workspace_size = in_c_dtype_size * _n1 * _n0 * batch * 6;
+    reservespace_size = out_c_dtype_size * _n0 * _n0 * 2 +
+                        out_c_dtype_size * _n1 * _n1 * 2; /* DFT matrix */
+    workspace_size = out_c_dtype_size * _n1 * _n0 * batch * 6;
   } else if (fft_plan->fft_strategy == CNFFT_FUNC_TWO_LEVEL_STOCKHAM) {
     reservespace_size = sizeof(int) * (FFT_MAXFACTORS) /* factors */
                         + sizeof(int) * (FFT_MAXFACTORS) + twiddles_size * 2 +
@@ -1939,7 +1944,8 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2C2D(
       fft_plan->inembed[0] == fft_plan->n[0] &&
       fft_plan->onembed[0] == fft_plan->n[0] &&
       fft_plan->inembed[1] == fft_plan->n[1] &&
-      fft_plan->onembed[1] == fft_plan->n[1]) {
+      fft_plan->onembed[1] == fft_plan->n[1] && fft_plan->n[0] < 200 &&
+      fft_plan->n[1] < 200) {
     fft_plan->fft_strategy = CNFFT_FUNC_MANY_DIST1_2D;
   } else {
     fft_plan->fft_strategy = CNFFT_FUNC_TWO_LEVEL_STOCKHAM;
@@ -2091,19 +2097,12 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanR2C2D(
       fft_plan->inembed[0] == fft_plan->n[0] &&
       fft_plan->onembed[0] == fft_plan->n[0] &&
       fft_plan->inembed[1] == fft_plan->n[1] &&
-      fft_plan->onembed[1] == fft_plan->n[1] / 2 + 1 && fft_plan->n[1] < 1000 &&
-      fft_plan->n[0] < 1000) {
+      fft_plan->onembed[1] == fft_plan->n[1] / 2 + 1 && fft_plan->n[1] < 200 &&
+      fft_plan->n[0] < 200) {
     fft_plan->fft_strategy = CNFFT_FUNC_MANY_DIST1_2D;
   } else {
     fft_plan->fft_strategy = CNFFT_FUNC_TWO_LEVEL_STOCKHAM;
   }
-
-  // if (fft_plan->idist == 1 && fft_plan->odist == 1 &&
-  //    fft_plan->istride == fft_plan->batch) {
-  //  fft_plan->fft_strategy = CNFFT_FUNC_MANY_DIST1_2D;
-  //} else {
-  //  fft_plan->fft_strategy = CNFFT_FUNC_TWO_LEVEL_STOCKHAM;
-  //}
 
   mluOpAllocateRFFT2D(handle, fft_plan, input_desc, output_desc, n[0], n[1]);
 
@@ -2190,8 +2189,8 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2R2D(
       fft_plan->inembed[0] == fft_plan->n[0] &&
       fft_plan->onembed[0] == fft_plan->n[0] &&
       fft_plan->inembed[1] == fft_plan->n[1] / 2 + 1 &&
-      fft_plan->onembed[1] == fft_plan->n[1] && fft_plan->n[1] < 1000 &&
-      fft_plan->n[0] < 1000) {
+      fft_plan->onembed[1] == fft_plan->n[1] && fft_plan->n[1] < 200 &&
+      fft_plan->n[0] < 200) {
     fft_plan->fft_strategy = CNFFT_FUNC_MANY_DIST1_2D;
   } else {
     fft_plan->fft_strategy = CNFFT_FUNC_TWO_LEVEL_STOCKHAM;

@@ -27,7 +27,6 @@
 #include "kernels/utils/common.h"
 #include "kernels/fft/fft.h"
 #include "kernels/fft/fft_optm_device/fft_butterfly_ops.h"
-#include "kernels/fft/fft_optm_device/fft_twiddle_factors.h"
 #include "kernels/fft/fft_optm_device/fft_c2r_stockham_gdram.h"
 
 __nram__ char

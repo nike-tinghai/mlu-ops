@@ -397,7 +397,7 @@ mluOpStatus_t computeFFT2dMatMulColumn(mluOpHandle_t handle,
 
 mluOpStatus_t computeFFT2dMatMulRowR2C(mluOpHandle_t handle,
                                        mluOpFFTPlan_t fft_plan,
-                                       const float scale_factor, int direction);
+                                       const float scale_factor);
 
 mluOpStatus_t computeFFT2dMatMulRowC2R(mluOpHandle_t handle,
                                        mluOpFFTPlan_t fft_plan,
@@ -405,8 +405,8 @@ mluOpStatus_t computeFFT2dMatMulRowC2R(mluOpHandle_t handle,
 
 mluOpStatus_t computeFFT2dMatMulColumnR2C(mluOpHandle_t handle,
                                           mluOpFFTPlan_t fft_plan,
-                                          const float scale_factor,
-                                          int direction);
+                                          const float scale_factor);
+
 mluOpStatus_t computeFFT2dMatMulColumnC2R(mluOpHandle_t handle,
                                           mluOpFFTPlan_t fft_plan,
                                           const float scale_factor);

@@ -1552,48 +1552,38 @@ mluOpStatus_t computeFFT2dMatMulColumnC2R(mluOpHandle_t handle,
   DEFINE_CREATE_AND_SET_CNNL_HANDLE(handle,
                                     cnnl_handle);  // convert to cnnl_handle
 
+  cnnlMatMulDescriptor_t matmul_desc;
+  cnnlMatMulAlgo_t matmul_algo;
+  cnnlMatMulHeuristicResult_t heuristic_result;
+  size_t matmul_ws_size = 0, workspace_size = 0;
+
+  CALL_CNNL(cnnlMatMulDescCreate(&matmul_desc));
+  CALL_CNNL(cnnlMatMulAlgoCreate(&matmul_algo));
+  CALL_CNNL(cnnlCreateMatMulHeuristicResult(&heuristic_result));
+  int32_t requested_algo_count = 1, return_algo_count = 0;
+
   // convert to cnnl_tensor_descriptor
   DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(a_desc, cnnl_a_desc);
   DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(b_desc, cnnl_b_desc);
   DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(c_desc, cnnl_c_desc);
-
-  // c_desc->onchip_dtype = MLUOP_DTYPE_FLOAT;
+  DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(c_desc, cnnl_d_desc);
   c_desc->onchip_dtype = in_e_dtype;
+  CALL_CNNL(cnnlGetMatMulAlgoHeuristic(cnnl_handle, matmul_desc, cnnl_a_desc,
+                                       cnnl_b_desc, cnnl_c_desc, cnnl_d_desc,
+                                       nullptr, requested_algo_count,
+                                       &heuristic_result, &return_algo_count));
+  CALL_CNNL(cnnlGetMatMulHeuristicResult(heuristic_result, matmul_algo,
+                                         &workspace_size));
+  float *workspace = nullptr;
+  if (workspace_size > 0) {
+    CNRT_CHECK(cnrtMalloc((void **)&workspace, workspace_size));
+  }
   float alpha = 1.0;
   float beta = 0.0;
-
-  CALL_CNNL(cnnlMatMul(cnnl_handle, false, false, &alpha, cnnl_a_desc,
-                       dft_matrix_addr, cnnl_b_desc, in_addr, &beta,
-                       cnnl_c_desc, out_addr));
-
-  //   cnnlMatMulAlgo_t algo;
-  //   CALL_CNNL(cnnlMatMulAlgoCreate(&algo));
-  //   cnnlMatMulDescriptor_t matmul_desc;
-  //   CALL_CNNL(cnnlMatMulDescCreate(&matmul_desc));
-
-  //   cnnlMatMulHeuristicResult_t heuristic_result;
-  //   CALL_CNNL(cnnlCreateMatMulHeuristicResult(&heuristic_result));
-
-  //   int requested_algo_count = 1, return_algo_count = 0;
-  //   float *workspace;
-  //   size_t workspace_size;
-  //   cnnlGetBatchMatMulAlgoHeuristic(cnnl_handle, matmul_desc, cnnl_a_desc,
-  //   cnnl_b_desc,
-  //                                   cnnl_c_desc, NULL, requested_algo_count,
-  //                                   &heuristic_result, &return_algo_count);
-
-  //   cnnlGetBatchMatMulHeuristicResult(heuristic_result, algo,
-  //   &workspace_size);
-
-  //   if (workspace_size > 0) {
-  //     CNRT_CHECK(cnrtMalloc((void **)&workspace, workspace_size));
-  //   } else {
-  //     CNRT_CHECK(cnrtMalloc((void **)&workspace, m * n * sizeof(float)));
-  //   }
-
-  // cnnlMatMul_v2(cnnl_handle, matmul_desc, algo, &alpha, cnnl_a_desc,
-  // dft_matrix_addr, cnnl_b_desc, in_addr, &beta, cnnl_c_desc, out_addr, (void
-  // *)workspace, workspace_size, cnnl_c_desc, out_addr);
+  CALL_CNNL(cnnlMatMul_v2(cnnl_handle, matmul_desc, matmul_algo, &alpha,
+                          cnnl_a_desc, dft_matrix_addr, cnnl_b_desc, in_addr,
+                          &beta, cnnl_c_desc, out_addr, workspace,
+                          workspace_size, cnnl_d_desc, out_addr));
 
   // destroy cnnl descriptor
   DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_a_desc);
@@ -1601,7 +1591,6 @@ mluOpStatus_t computeFFT2dMatMulColumnC2R(mluOpHandle_t handle,
   DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_c_desc);
 
   DESTROY_CNNL_HANDLE(cnnl_handle);
-  cnrtQueueSync(handle->queue);
 
   cnrtDim3_t k_dim;
   cnrtFunctionType_t k_type;
@@ -1610,8 +1599,6 @@ mluOpStatus_t computeFFT2dMatMulColumnC2R(mluOpHandle_t handle,
   kernelFFTBatchConjMergeC2R(
       k_dim, k_type, handle->queue, fft_plan->mlu_addrs.buffer_in,
       fft_plan->mlu_addrs.buffer_out, (n1 / 2 + 1) * batch, n0, in_e_dtype);
-
-  cnrtQueueSync(handle->queue);
 
   return status;
 }
@@ -1627,7 +1614,6 @@ mluOpStatus_t computeFFT2dMatMulRowC2R(mluOpHandle_t handle,
   int n0 = fft_plan->n[0];
   int n1 = fft_plan->n[1];
 
-  printf("%d, %d, %d\n", batch, n0, n1);
   void *dft_matrix_addr = fft_plan->mlu_addrs.dft_matrix;
   void *in_addr = fft_plan->mlu_addrs.buffer_in;
   void *out_addr = fft_plan->mlu_addrs.output;
@@ -1713,7 +1699,6 @@ mluOpStatus_t computeFFT2dMatMulRowC2R(mluOpHandle_t handle,
   DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_c_desc);
 
   DESTROY_CNNL_HANDLE(cnnl_handle);
-  // cnrtQueueSync(handle->queue);
 
   return status;
 }
@@ -1846,6 +1831,11 @@ mluOpStatus_t execIRFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
       fft_plan->mlu_addrs.output =
           (void *)((uint64_t)(fft_plan->mlu_addrs.output) + odist);
     }
+    fft_plan->mlu_addrs.input = (void *)((uint64_t)(fft_plan->mlu_addrs.input) -
+                                         fft_plan->batch * idist);
+    fft_plan->mlu_addrs.output =
+        (void *)((uint64_t)(fft_plan->mlu_addrs.output) -
+                 fft_plan->batch * odist);
 
     status = makeIRFFT2dContiguousOutput(handle, fft_plan, output,
                                          fft_plan->mlu_addrs.output);

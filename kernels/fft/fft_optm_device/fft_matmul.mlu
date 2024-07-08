@@ -45,6 +45,8 @@ __mlu_func__ void computeConjMerge(DT *output, DT *input, int len) {
                                          : (remain_num * (repeat_num + 1) +
                                             (taskId - remain_num) * repeat_num);
   int nram_buf_offset = 0;
+
+  // efficient parallel number: 1000
   const int max_para_num = 1000 > t_len ? t_len : 1000;
   repeat_num = (t_len + max_para_num - 1) / max_para_num;
 
@@ -144,6 +146,7 @@ __mlu_func__ void computeBatchConjMerge(DT *output, DT *input, int len,
                                          : (remain_num * (repeat_num + 1) +
                                             (taskId - remain_num) * repeat_num);
   int nram_buf_offset = 0;
+  // efficient parallel number: 600
   const int max_para_num = 600 < t_len ? 600 : t_len;
   repeat_num = (t_len + max_para_num - 1) / max_para_num;
 
@@ -253,6 +256,7 @@ __mlu_func__ void computeBatchConjMergeR2C(DT *output, DT *input, int len,
                                          : (remain_num * (repeat_num + 1) +
                                             (taskId - remain_num) * repeat_num);
   int nram_buf_offset = 0;
+  // efficient parallel number: 768
   const int max_para_num = 768 < t_len ? 768 : t_len;
   repeat_num = (t_len + max_para_num - 1) / max_para_num;
 
@@ -367,6 +371,7 @@ __mlu_func__ void computeBatchConjMergeC2R(DT *output, DT *input, int len,
                                             (taskId - remain_num) * repeat_num);
 
   int nram_buf_offset = 0;
+  // efficient parallel number: 600
   const int max_para_num = 600 < t_len ? 600 : t_len;
   repeat_num = (t_len + max_para_num - 1) / max_para_num;
 
