@@ -26,10 +26,10 @@
 // Compute the large butterfly for the first stage from real to complex (R2C)
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageR2C(
-    DT *output, DT *input, const int large_radix, int large_in_stride,
-    int section_num, const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, void *nram_buf, const int *small_factors, int nfft,
-    int last_stage, const int load_once_twiddles) {
+    DT *output, DT *input, const int large_radix, const int large_in_stride,
+    const int section_num, const DT *small_twiddles, const int small_twiddles_size,
+    const DT *dft_matrix, void *nram_buf, const int *small_factors, const int nfft,
+    const int last_stage, const int load_once_twiddles) {
   // constant
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
 
@@ -88,8 +88,6 @@ __mlu_func__ void computeLargeButterflyFirststageR2C(
 
   DT *nram_scratch = (DT *)nram_buf + nram_buf_offset;
 
-  MLULOG("nram used: %d bytes.\n",
-         (int)((size_t)nram_scratch - (size_t)nram_buffer));
 
   int repeat_num = (section_num + max_para_ldst_num - 1) / max_para_ldst_num;
 
@@ -162,8 +160,7 @@ __mlu_func__ void computeLargeButterflyFirststageR2C(
                               ? (section_num - i)
                               : max_para_ldst_num;
 
-      for (int compute_id = 0; compute_id < para_ldst_num;
-           compute_id += para_ldst_num) {
+      {
         // load real & imag
         radix = small_factors[4];
         small_section_num = small_factors[5];
@@ -221,9 +218,7 @@ __mlu_func__ void computeLargeButterflyFirststageR2C(
                 NRAM2NRAM);
           }
 
-          continue;
-        }
-
+        }else{
         // [small_section_num, para_ldst_num, radix] -> [para_ldst_num,
         // small_section_num, radix]
         FFT_SWAP_PTR(nram_out_r, nram_in_r);
@@ -325,6 +320,9 @@ __mlu_func__ void computeLargeButterflyFirststageR2C(
                 NRAM2NRAM);
           }
         }
+
+        }
+
       }
     }
 
@@ -337,9 +335,9 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyOtherstagesR2C(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_in_stride, void *nram_buf, const int *small_factors, int nfft,
-    int last_stage, const int load_once_twiddles) {
+    const DT *dft_matrix, const int large_section_num, const int large_butterfly_num,
+    const int large_in_stride, void *nram_buf, const int *small_factors, const int nfft,
+    const int last_stage, const int load_once_twiddles) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
   const int K_num = 64 / sizeof(DT);
   int align_K = 0;
@@ -590,8 +588,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
         __bang_add(nram_para_load_in.i + para_ldst_num, CPX_MUL_RI, CPX_MUL_IR,
                    para_ldst_num * (large_radix - 1));
 
-        for (int compute_id = 0; compute_id < para_ldst_num;
-             compute_id += para_ldst_num) {
+        {
           // load real & imag
 
           radix = small_factors[4];
@@ -662,14 +659,12 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
             }
             if (last_stage) {
               __sync_compute();
-              __memcpy_async(nram_transpose_temp.r + compute_id * large_radix *
-                                                         (1 + (int)last_stage),
+              __memcpy_async(nram_transpose_temp.r,
                              nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
                              sizeof(DT) * large_radix * 2,
                              sizeof(DT) * large_radix, para_ldst_num - 1);
 
-              __memcpy_async(nram_transpose_temp.i + compute_id * large_radix *
-                                                         (1 + (int)last_stage),
+              __memcpy_async(nram_transpose_temp.i,
                              nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
                              sizeof(DT) * large_radix * 2,
                              sizeof(DT) * large_radix, para_ldst_num - 1);
@@ -683,8 +678,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
                                large_radix);
             }
 
-            continue;
-          }
+          }else{
 
           FFT_SWAP_PTR(nram_out_r, nram_in_r);
           FFT_SWAP_PTR(nram_out_i, nram_in_i);
@@ -808,13 +802,11 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
             }
 
             if (last_stage) {
-              __memcpy(nram_transpose_temp.r +
-                           compute_id * large_radix * (1 + (int)last_stage),
+              __memcpy(nram_transpose_temp.r,
                        nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
                        sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
                        para_ldst_num - 1);
-              __memcpy(nram_transpose_temp.i +
-                           compute_id * large_radix * (1 + (int)last_stage),
+              __memcpy(nram_transpose_temp.i,
                        nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
                        sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
                        para_ldst_num - 1);
@@ -828,6 +820,8 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
                                large_radix);
             }
           }
+          }
+
         }
       }
       __sync();
@@ -842,8 +836,8 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyLaststageR2C(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_in_stride, void *nram_buf, const int *small_factors, int nfft,
+    const DT *dft_matrix, const int large_section_num, const int large_butterfly_num,
+    const int large_in_stride, void *nram_buf, const int *small_factors, const int nfft,
     const int load_once_twiddles) {
   computeLargeButterflyOtherstagesR2C(
       output, input, large_radix, cur_large_twiddles, small_twiddles,

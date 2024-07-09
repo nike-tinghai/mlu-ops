@@ -32,6 +32,7 @@
 __nram__ char
     nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4];
 
+  __nram__ int nram_factors[FFT_MAXFACTORS];
 __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
 // Kernel function for 1D FFT butterfly operations on rows.
@@ -39,8 +40,8 @@ __mlu_global__ void MLUKernelFFT1dButterflyRow(void *input, void *output,
                                                int *factors, void *twiddles,
                                                void *twiddles_end,
                                                void *dft_matrix, void *buffer,
-                                               int batch, int fft_flag,
-                                               int direction, int dtype_size) {
+                                               const int batch, const int fft_flag,
+                                               const int direction, const int dtype_size) {
   switch (dtype_size) {
     case (MLUOP_DTYPE_COMPLEX_FLOAT):
     case (MLUOP_DTYPE_FLOAT): {
@@ -66,8 +67,8 @@ __mlu_global__ void MLUKernelFFT1dButterflyRow(void *input, void *output,
 // Kernel function for 1D FFT butterfly operations on columns.
 __mlu_global__ void MLUKernelFFT1dButterflyColumn(
     void *input, void *output, int *factors, void *twiddles, void *twiddles_end,
-    void *dft_matrix, void *buffer, int batch, int fft_flag, int direction,
-    int dtype_size, int nb) {
+    void *dft_matrix, void *buffer, const int batch, const int fft_flag, const int direction,
+    const int dtype_size, const int nb) {
   switch (dtype_size) {
     case (MLUOP_DTYPE_COMPLEX_FLOAT):
     case (MLUOP_DTYPE_FLOAT): {
@@ -93,7 +94,7 @@ __mlu_global__ void MLUKernelFFT1dButterflyColumn(
 // Launches a kernel for 2D FFT butterfly operations on columns.
 mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyColumn(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
-    mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag) {
+    mluOpFFTPlan_t fft_plan, const int direction, FFTFlag flag) {
   VLOG(5) << "Launch Kernel kernelFFT1dButterflyRow <<Union"
           << k_type / CORE_DIM << ", " << k_dim.x << ", " << k_dim.y << ", "
           << k_dim.z << ">>>";
@@ -121,7 +122,7 @@ mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyColumn(
 // Launches a kernel for 1D FFT butterfly operations on columns.
 mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyColumn(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
-    mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag) {
+    mluOpFFTPlan_t fft_plan, const int direction, FFTFlag flag) {
   VLOG(5) << "Launch Kernel kernelFFT1dButterflyRow <<Union"
           << k_type / CORE_DIM << ", " << k_dim.x << ", " << k_dim.y << ", "
           << k_dim.z << ">>>";
@@ -148,7 +149,7 @@ mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyColumn(
 // Launches a kernel for 2D FFT butterfly operations on rows.
 mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyRow(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
-    mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag) {
+    mluOpFFTPlan_t fft_plan, const int direction, FFTFlag flag) {
   VLOG(5) << "Launch Kernel kernelFFT1dButterflyRow <<Union"
           << k_type / CORE_DIM << ", " << k_dim.x << ", " << k_dim.y << ", "
           << k_dim.z << ">>>";
@@ -175,7 +176,7 @@ mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyRow(
 // Launches a kernel for 1D FFT butterfly operations on rows.
 mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyRow(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
-    mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag) {
+    mluOpFFTPlan_t fft_plan, const int direction, FFTFlag flag) {
   VLOG(5) << "Launch Kernel kernelFFT1dButterflyRow <<Union"
           << k_type / CORE_DIM << ", " << k_dim.x << ", " << k_dim.y << ", "
           << k_dim.z << ">>>";

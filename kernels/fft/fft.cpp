@@ -551,9 +551,9 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrix(void *&_dft_matrix,
 // factors[small_factors_offset+4*(j+1)+2]: butterfly_num
 // factors[small_factors_offset+4*(j+1)+3]: in_stride
 
-mluOpStatus_t MLUOP_WIN_API fftFactor(int _n, int *facbuf,
+mluOpStatus_t MLUOP_WIN_API fftFactor(const int _n, int *facbuf,
                                       int &small_factors_offset,
-                                      const int factor_type, int large_count) {
+                                      const int factor_type, const int large_count) {
   int n = _n;
   int r, in_stride, section_num, stage_num = 0, out_stride = 1;
 
@@ -799,7 +799,7 @@ mluOpStatus_t MLUOP_WIN_API fftFactor(int _n, int *facbuf,
 // facbuf[5 * stage_num + 4] = small_factors_offset;
 mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
                                              const int _n, int *facbuf,
-                                             int is_row_major,
+                                             const int is_row_major,
                                              const int factor_type) {
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
   int n = _n;
@@ -1090,7 +1090,7 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
 
 mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
                                              int &large_radix, int *facbuf,
-                                             int large_stage_id, int _n) {
+                                             const int large_stage_id, const int _n) {
   large_radix = 1;
 
   int cur_stage_num = 0, cur_large_radix = 1;
@@ -1147,7 +1147,7 @@ mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
 
 // low bound
 mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
-                                                   int *facbuf, int stage,
+                                                   int *facbuf, const int stage,
                                                    int &parallel_num_lb) {
   const size_t nram_space_size =
       (MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4);
@@ -1359,7 +1359,7 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
 }
 
 mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
-                                              int *facbuf, int stage,
+                                              int *facbuf, const int stage,
                                               const int large_radix) {
   const std::string make_plan_api = "[setMaxParallelNum]";
 
@@ -2752,7 +2752,7 @@ mluOpStatus_t MLUOP_WIN_API mluOpSetFFTReserveArea(mluOpHandle_t handle,
 
 mluOpStatus_t MLUOP_WIN_API mluOpExecFFT(
     mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan, const void *input,
-    const float scale_factor, void *workspace, void *output, int direction) {
+    const float scale_factor, void *workspace, void *output, const int direction) {
   const std::string exec_api = "[mluOpExecFFT]";
   PARAM_CHECK_NE(exec_api, handle, NULL);
   PARAM_CHECK_NE(exec_api, fft_plan, NULL);

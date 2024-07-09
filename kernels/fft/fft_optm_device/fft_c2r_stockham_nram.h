@@ -27,10 +27,10 @@
 // processing from complex to real (C2R)
 template <typename DT>
 __mlu_func__ void computeLargeButterflyLaststageBatchPingpongC2R(
-    DT *output, DT *input, const int large_radix, int large_out_stride,
-    int large_butterfly_num, const DT *small_twiddles,
+    DT *output, DT *input, const int large_radix, const int large_out_stride,
+    const int large_butterfly_num, const DT *small_twiddles,
     const int small_twiddles_size, const DT *dft_matrix, void *nram_buf,
-    const int *small_factors, int nfft, const int t_start, const int t_end,
+    const int *small_factors, const int nfft, const int t_start, const int t_end,
     const int load_once_twiddles) {
   const int dir = FFT_BACKWARD;
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
@@ -183,8 +183,7 @@ __mlu_func__ void computeLargeButterflyLaststageBatchPingpongC2R(
                            lower_radix);
         }
 
-        for (int compute_id = 0; compute_id < para_num;
-             compute_id += para_num) {
+        {
           // load real & imag
           radix = small_factors[4];
           small_section_num = small_factors[5];
@@ -237,9 +236,7 @@ __mlu_func__ void computeLargeButterflyLaststageBatchPingpongC2R(
                                large_radix);
             }
 
-            continue;
-          }
-
+          }else{
           // [small_section_num, para_ldst_num, radix] -> [para_ldst_num,
           // small_section_num, radix]
           FFT_SWAP_PTR(nram_out_r, nram_in_r);
@@ -342,6 +339,9 @@ __mlu_func__ void computeLargeButterflyLaststageBatchPingpongC2R(
                                large_radix);
             }
           }
+
+          }
+
         }
       }
 
@@ -358,9 +358,9 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpongC2R(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_out_stride, void *nram_buf, const int *small_factors, int nfft,
-    const int t_start, const int t_end, int last_stage,
+    const DT *dft_matrix, const int large_section_num, const int large_butterfly_num,
+    const int large_out_stride, void *nram_buf, const int *small_factors, const int nfft,
+    const int t_start, const int t_end, const int last_stage,
     const int load_once_twiddles) {
   const int dir = FFT_BACKWARD;
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
@@ -789,9 +789,9 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageBatchPingpongC2R(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_out_stride, void *nram_buf, const int *small_factors, int nfft,
-    const int t_start, const int t_end, int dir, int last_stage,
+    const DT *dft_matrix, const int large_section_num, const int large_butterfly_num,
+    const int large_out_stride, void *nram_buf, const int *small_factors, const int nfft,
+    const int t_start, const int t_end, const int dir, const int last_stage,
     const int load_once_twiddles) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
   int radix, small_in_stride, small_stage_count, _small_stage_count;
@@ -968,8 +968,7 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpongC2R(
               nram_out_i, -1, para_num * lower_radix);
         }
 
-        for (int compute_id = 0; compute_id < para_num;
-             compute_id += para_num) {
+        {
           // load real & imag
 
           radix = small_factors[4];
@@ -1058,8 +1057,7 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpongC2R(
                   CPX_MUL_RI, CPX_MUL_IR, para_num * (large_radix - 1));
             }
 
-            continue;
-          }
+          }else{
 
           // [small_section_num, para_ldst_num, radix] -> [para_ldst_num,
           // small_section_num, radix]
@@ -1196,6 +1194,8 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpongC2R(
                   CPX_MUL_RI, CPX_MUL_IR, para_num * (large_radix - 1));
             }
           }
+          }
+
         }
       }
 

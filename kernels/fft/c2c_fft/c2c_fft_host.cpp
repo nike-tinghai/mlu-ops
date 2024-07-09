@@ -1411,7 +1411,7 @@ static mluOpStatus_t quantizeFFT1dPaddedInput(mluOpHandle_t handle,
 static mluOpStatus_t computeFFT1dMatmulResult(mluOpHandle_t handle,
                                               mluOpFFTPlan_t fft_plan,
                                               const float scale_factor,
-                                              int direction) {
+                                              const int direction) {
   std::string api = "[mluOpExecFFT]";
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
 
@@ -1786,7 +1786,7 @@ static mluOpStatus_t makeFFT2dContiguousOutput(mluOpHandle_t handle,
 }
 
 mluOpStatus_t execFFTc2c1d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
-                           const float scale_factor, int direction) {
+                           const float scale_factor, const int direction) {
   std::string api = "[execFFTc2c1d]";
 
   VLOG(5) << "launch c2c fft1d";
@@ -1807,7 +1807,7 @@ mluOpStatus_t execFFTc2c1d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
 }
 
 mluOpStatus_t execFFTc2c2d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
-                           const float scale_factor, int direction) {
+                           const float scale_factor, const int direction) {
   std::string api = "[execFFTc2c2d]";
 
   VLOG(5) << "launch c2c fft2d";
@@ -1876,7 +1876,7 @@ mluOpStatus_t execFFTc2c2d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
 
 mluOpStatus_t execFFT1d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
                         const void *input, const float scale_factor,
-                        void *workspace, void *output, int direction) {
+                        void *workspace, void *output, const int direction) {
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
   std::string api = "[mluOpExecFFT]";
 
@@ -1927,7 +1927,7 @@ mluOpStatus_t execFFT1d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
 
 mluOpStatus_t execFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
                         const void *input, const float scale_factor,
-                        void *workspace, void *output, int direction) {
+                        void *workspace, void *output, const int direction) {
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
   std::string api = "[mluOpExecFFT]";
 
@@ -1960,7 +1960,7 @@ mluOpStatus_t execFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
 mluOpStatus_t computeFFT2dMatMulColumn(mluOpHandle_t handle,
                                        mluOpFFTPlan_t fft_plan,
                                        const float scale_factor,
-                                       int direction) {
+                                       const int direction) {
   std::string api = "[computeFFT2dMatMulColumn]";
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
 
@@ -2085,7 +2085,7 @@ mluOpStatus_t computeFFT2dMatMulColumn(mluOpHandle_t handle,
 
 mluOpStatus_t computeFFT2dMatMulRow(mluOpHandle_t handle,
                                     mluOpFFTPlan_t fft_plan,
-                                    const float scale_factor, int direction) {
+                                    const float scale_factor, const int direction) {
   std::string api = "[computeFFT2dMatMulRow]";
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
 
