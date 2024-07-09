@@ -23,8 +23,7 @@
 #pragma once
 #include "kernels/fft/fft_optm_device/fft_r2c_stockham_nram.h"
 
-extern __nram__ char
-    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4];
+extern __nram__ char nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
 __mlu_shared__ char sram_buffer[MAX_SRAM_SIZE];
 extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
@@ -34,12 +33,15 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
                                             const DT *twiddles,
                                             const DT *twiddles_end,
                                             const DT *dft_matrix, DT *buffer,
-                                            int batch, int fft_flag) {
+                                            const int batch,
+                                            const int fft_flag) {
   int total_num = batch;
   int repeat_num = total_num / taskDim;
   int remain_num = total_num % taskDim;
 
-  char *nram_buf = nram_buffer;
+  char *nram_buf = nram_buffer + FFT_MAXFACTORS * sizeof(int);
+  int *nram_factors = (int *)nram_buffer;
+
   int t_len = repeat_num + ((remain_num > 0 && taskId < remain_num) ? 1 : 0);
   int t_start = taskId - remain_num <= 0 ? taskId * (repeat_num + 1)
                                          : (remain_num * (repeat_num + 1) +
@@ -58,7 +60,6 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
 
   int *small_factors;
   int last_stage;
-  __nram__ int nram_factors[FFT_MAXFACTORS];
 
   int sram_offset = 0;
   int *sram_factors = (int *)(sram_buffer + sram_offset);
@@ -77,7 +78,7 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
   const int nfft = factors[1];
 
   // first stage
-  radix = factors[5 + 0];
+  radix = factors[5];
   section_num = factors[5 + 1];
   in_stride = factors[5 + 3];
   small_factors_offset = factors[5 + 4];
@@ -136,7 +137,7 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
   const DT *_twiddles = twiddles;
 
   DT *extra_buffer;
-  if (__is_ipu()) {
+  {
     extra_buffer = buffer + batch * (nfft << 1);  // for in_place temp buffer
     // out_place: input -> output (1 stage)
     //            input -> buffer -> output (2 stage)
@@ -188,21 +189,20 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
     int small_twiddles_size = factors[small_factors_offset + 2];
     const DT *small_twiddles = _twiddles + tw_offset * 2;  // complex
 
-    if (__is_ipu()) {
-      if (repeat_num > 0 || taskId < remain_num) {
-        for (int t = t_start; t < t_end; t++) {
-          DT *output_batch = extra_buffer + t * (nfft_out << 1);
-          DT *buffer_batch = buffer + t * (nfft_in << 1);
+    if (repeat_num > 0 || taskId < remain_num) {
+      for (int t = t_start; t < t_end; t++) {
+        DT *output_batch = extra_buffer + t * (nfft_out << 1);
+        DT *buffer_batch = buffer + t * (nfft_in << 1);
 
-          computeLargeButterflyOtherstagesR2C<DT>(
-              output_batch, buffer_batch, radix, (DT *)twiddles, small_twiddles,
-              small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
-              in_stride, (void *)nram_buf, small_factors, nfft, 0,
-              load_once_twiddles);
-        }
-        FFT_SWAP_PTR(extra_buffer, buffer);
+        computeLargeButterflyOtherstagesR2C<DT>(
+            output_batch, buffer_batch, radix, (DT *)twiddles, small_twiddles,
+            small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
+            in_stride, (void *)nram_buf, small_factors, nfft, 0,
+            load_once_twiddles);
       }
+      FFT_SWAP_PTR(extra_buffer, buffer);
     }
+
     FFT_SWAP_VALUE(nfft_in, nfft_out);
     twiddles += ((butterfly_num + 2) / 2) * (radix - 1) * 2;  // 2 for complex
   }  // for (stage_count)
@@ -222,20 +222,16 @@ __mlu_func__ void computeMutiStageR2COnchip(DT *input, DT *output, int *factors,
     int small_twiddles_size = factors[small_factors_offset + 2];
     const DT *small_twiddles = _twiddles + tw_offset * 2;  // complex
 
-    if (__is_ipu()) {
-      MLULOG("last stage radix: %d, section_num: %d\n", radix, section_num);
+    if (repeat_num > 0 || taskId < remain_num) {
+      for (int t = t_start; t < t_end; t++) {
+        DT *output_batch = output + t * (nfft_out << 1);
+        DT *buffer_batch = buffer + t * (nfft_in << 1);
 
-      if (repeat_num > 0 || taskId < remain_num) {
-        for (int t = t_start; t < t_end; t++) {
-          DT *output_batch = output + t * (nfft_out << 1);
-          DT *buffer_batch = buffer + t * (nfft_in << 1);
-
-          computeLargeButterflyLaststageR2C<DT>(
-              output_batch, buffer_batch, radix, (DT *)twiddles, small_twiddles,
-              small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
-              in_stride, (void *)nram_buf, small_factors, nfft,
-              load_once_twiddles);
-        }
+        computeLargeButterflyLaststageR2C<DT>(
+            output_batch, buffer_batch, radix, (DT *)twiddles, small_twiddles,
+            small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
+            in_stride, (void *)nram_buf, small_factors, nfft,
+            load_once_twiddles);
       }
     }
   }

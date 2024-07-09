@@ -41,8 +41,5 @@ mluOpStatus_t execFFT1d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
 mluOpStatus_t execFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
                         const void *input, const float scale_factor,
                         void *workspace, void *output, int direction);
-// mluOpStatus_t execFFT1d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
-//                         const void *input, const float scale_factor,
-//                         void *workspace, void *output, int direction);
 
 #endif  // KERNELS_FFT_C2C_FFT_C2C_FFT_H_

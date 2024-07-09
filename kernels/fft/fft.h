@@ -300,113 +300,169 @@ kernelFFTStockham(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
                   cnrtQueue_t queue, mluOpFFTPlan_t fft_plan, int direction,
                   const float scale_factor, FFTFlag flag);
 
+// Sets the maximum parallel number for the FFT plan, factoring in the given
+// buffer, stage, large radix, and row-major flag.
 mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
                                               int *facbuf, int stage,
-                                              const int large_radix);
+                                              const int large_radix,
+                                              const int is_row_major);
 
+// Factors the given FFT plan into two steps based on the size, factoring
+// buffer, row-major flag, and FFT type.
 mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
                                              const int _n, int *facbuf,
                                              const int is_row_major,
                                              const int fft_type);
 
+// Executes the 1D Butterfly FFT kernel for rows with the specified dimensions,
+// function type, queue, FFT plan, direction, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyRow(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag);
 
+// Executes the 1D Butterfly FFT kernel for rows, converting complex to real,
+// with the specified dimensions, function type, queue, FFT plan, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyRowC2R(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, FFTFlag flag);
 
+// Executes the 1D Butterfly FFT kernel for columns with the specified
+// dimensions, function type, queue, FFT plan, direction, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyColumn(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag);
 
+// Executes the 2D Butterfly FFT kernel for columns with the specified
+// dimensions, function type, queue, FFT plan, direction, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyColumn(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag);
 
+// Executes the inverse 2D Butterfly FFT kernel for columns with the specified
+// dimensions, function type, queue, FFT plan, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelIRFFT2dButterflyColumn(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, FFTFlag flag);
 
+// Executes the 2D Butterfly FFT kernel for rows with the specified dimensions,
+// function type, queue, FFT plan, direction, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyRow(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag);
 
+// Executes the 1D Butterfly FFT kernel for real to complex conversion with the
+// specified dimensions, function type, queue, FFT plan, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelFFT1dButterflyR2C(cnrtDim3_t k_dim,
                                                     cnrtFunctionType_t k_type,
                                                     cnrtQueue_t queue,
                                                     mluOpFFTPlan_t fft_plan,
                                                     FFTFlag flag);
 
+// Executes the 2D Butterfly FFT kernel for real input, inverse operation,
+// column-wise, with the specified dimensions, function type, queue, FFT plan,
+// and flag.
 mluOpStatus_t MLUOP_WIN_API kernelRFFT2dButterflyColumn(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, FFTFlag flag);
 
+// Executes the 2D Butterfly FFT kernel for real input, inverse operation,
+// row-wise, with the specified dimensions, function type, queue, FFT plan, and
+// flag.
 mluOpStatus_t MLUOP_WIN_API kernelRFFT2dButterflyRow(cnrtDim3_t k_dim,
                                                      cnrtFunctionType_t k_type,
                                                      cnrtQueue_t queue,
                                                      mluOpFFTPlan_t fft_plan,
                                                      FFTFlag flag);
 
+// Executes the inverse 2D Butterfly FFT kernel for rows with the specified
+// dimensions, function type, queue, FFT plan, and flag.
 mluOpStatus_t MLUOP_WIN_API kernelIRFFT2dButterflyRow(cnrtDim3_t k_dim,
                                                       cnrtFunctionType_t k_type,
                                                       cnrtQueue_t queue,
                                                       mluOpFFTPlan_t fft_plan,
                                                       FFTFlag flag);
 
-mluOpStatus_t MLUOP_WIN_API kernelFFT2dButterflyRowC2R(
-    cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
-    mluOpFFTPlan_t fft_plan, int direction, FFTFlag flag);
-
+// Executes the complex-to-complex FFT/DFT matrix kernel with the specified
+// dimensions, function type, queue, FFT plan, input real data type, and size.
 mluOpStatus_t MLUOP_WIN_API kernelC2CFFTDFTMatrix(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     mluOpFFTPlan_t fft_plan, mluOpDataType_t in_r_dtype, int n);
 
+// Searches for a large radix in the FFT plan, updating large radix and
+// factoring buffer based on the stage ID, size, and row-major flag.
 mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
                                              int &large_radix, int *facbuf,
-                                             int large_stage_id, int _n);
+                                             int large_stage_id, int _n,
+                                             const int is_row_major);
+
+// Calculates the lower bound of the parallel number for the FFT plan, factoring
+// in the stage, buffer, and row-major flag, updating parallel_num_lb.
 mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
                                                    int *facbuf, int stage,
-                                                   int &parallel_num_lb);
+                                                   int &parallel_num_lb,
+                                                   const int is_row_major);
 
+// Executes the kernel for conjugate merge FFT operation with the specified
+// dimensions, function type, queue, output and input buffers, length, and data
+// type.
 mluOpStatus_t MLUOP_WIN_API kernelFFTConjMerge(cnrtDim3_t k_dim,
                                                cnrtFunctionType_t k_type,
                                                cnrtQueue_t queue, void *output,
                                                void *input, int len, int dtype);
 
+// Executes the kernel for batched conjugate merge FFT operation with the
+// specified dimensions, function type, queue, output and input buffers, length,
+// batch size, and data type.
 mluOpStatus_t MLUOP_WIN_API kernelFFTBatchConjMerge(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     void *output, void *input, int len, int batch, int dtype);
 
+// Executes the kernel for batched conjugate merge FFT operation from real to
+// complex with the specified dimensions, function type, queue, output and input
+// buffers, length, batch size, and data type.
 mluOpStatus_t MLUOP_WIN_API kernelFFTBatchConjMergeR2C(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     void *output, void *input, int len, int batch, int dtype);
 
+// Executes the kernel for batched conjugate merge FFT operation from complex to
+// real with the specified dimensions, function type, queue, output and input
+// buffers, length, batch size, and data type.
 mluOpStatus_t MLUOP_WIN_API kernelFFTBatchConjMergeC2R(
     cnrtDim3_t k_dim, cnrtFunctionType_t k_type, cnrtQueue_t queue,
     void *output, void *input, int len, int batch, int dtype);
 
+// Computes the 2D FFT followed by matrix multiplication for rows with the
+// specified handle, FFT plan, scaling factor, and direction.
 mluOpStatus_t computeFFT2dMatMulRow(mluOpHandle_t handle,
                                     mluOpFFTPlan_t fft_plan,
                                     const float scale_factor, int direction);
 
+// Computes the 2D FFT followed by matrix multiplication for columns with the
+// specified handle, FFT plan, scaling factor, and direction.
 mluOpStatus_t computeFFT2dMatMulColumn(mluOpHandle_t handle,
                                        mluOpFFTPlan_t fft_plan,
                                        const float scale_factor, int direction);
 
+// Computes the 2D FFT followed by matrix multiplication for rows from real to
+// complex with the specified handle, FFT plan, and scaling factor.
 mluOpStatus_t computeFFT2dMatMulRowR2C(mluOpHandle_t handle,
                                        mluOpFFTPlan_t fft_plan,
                                        const float scale_factor);
 
+// Computes the 2D FFT followed by matrix multiplication for rows from complex
+// to real with the specified handle, FFT plan, and scaling factor.
 mluOpStatus_t computeFFT2dMatMulRowC2R(mluOpHandle_t handle,
                                        mluOpFFTPlan_t fft_plan,
                                        const float scale_factor);
 
+// Computes the 2D FFT followed by matrix multiplication for columns from real
+// to complex with the specified handle, FFT plan, and scaling factor.
 mluOpStatus_t computeFFT2dMatMulColumnR2C(mluOpHandle_t handle,
                                           mluOpFFTPlan_t fft_plan,
                                           const float scale_factor);
 
+// Computes the 2D FFT followed by matrix multiplication for columns from
+// complex to real with the specified handle, FFT plan, and scaling factor.
 mluOpStatus_t computeFFT2dMatMulColumnC2R(mluOpHandle_t handle,
                                           mluOpFFTPlan_t fft_plan,
                                           const float scale_factor);

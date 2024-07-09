@@ -23,23 +23,21 @@
 #pragma once
 #include "kernels/fft/fft_optm_device/fft_c2r_stockham_nram.h"
 
-extern __nram__ char
-    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4];
+extern __nram__ char nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
 __mlu_shared__ char sram_buffer[MAX_SRAM_SIZE];
 extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
 // Compute multi-stage on-chip FFT from complex to real (C2R)
 template <typename DT>
-__mlu_func__ void computeMutiStageOnchipC2R(DT *input, DT *output, int *factors,
-                                            DT *twiddles,
-                                            const DT *twiddles_end,
-                                            const DT *dft_matrix, DT *buffer,
-                                            int batch, int fft_flag) {
+__mlu_func__ void computeMutiStageOnchipC2R(
+    DT *input, DT *output, int *factors, DT *twiddles, const DT *twiddles_end,
+    const DT *dft_matrix, DT *buffer, const int batch, const int fft_flag) {
   int total_num = batch;
   int repeat_num = total_num / taskDim;
   int remain_num = total_num % taskDim;
 
-  char *nram_buf = nram_buffer;
+  char *nram_buf = nram_buffer + FFT_MAXFACTORS * sizeof(int);
+  int *nram_factors = (int *)nram_buffer;
 
   // Each core needs to process "t_len" blocks, "remain_num" is evenly
   // assigned to the previous "remian_num" cores.
@@ -60,8 +58,6 @@ __mlu_func__ void computeMutiStageOnchipC2R(DT *input, DT *output, int *factors,
 
   int *small_factors;
   int last_stage;
-
-  __nram__ int nram_factors[FFT_MAXFACTORS];
 
   int sram_offset = 0;
   int *sram_factors = (int *)(sram_buffer + sram_offset);
@@ -148,7 +144,7 @@ __mlu_func__ void computeMutiStageOnchipC2R(DT *input, DT *output, int *factors,
   }
 
   DT *extra_buffer;
-  if (__is_ipu()) {
+  {
     extra_buffer = buffer + batch * (nfft << 1);  // for in_place temp buffer
 
     // c2r:       input -> output (1 stage)
@@ -195,15 +191,13 @@ __mlu_func__ void computeMutiStageOnchipC2R(DT *input, DT *output, int *factors,
     int small_twiddles_size = factors[small_factors_offset + 2];
     const DT *small_twiddles = _twiddles + tw_offset * 2;  // complex
 
-    if (__is_ipu()) {
-      if (repeat_num > 0 || taskId < remain_num) {
-        computeLargeButterflyOtherstagesBatchPingpongC2R<DT>(
-            extra_buffer, buffer, radix, (DT *)twiddles, small_twiddles,
-            small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
-            out_stride, (void *)nram_buf, small_factors, nfft, t_start, t_end,
-            0, load_once_twiddles);
-        FFT_SWAP_PTR(extra_buffer, buffer);
-      }
+    if (repeat_num > 0 || taskId < remain_num) {
+      computeLargeButterflyOtherstagesBatchPingpongC2R<DT>(
+          extra_buffer, buffer, radix, (DT *)twiddles, small_twiddles,
+          small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
+          out_stride, (void *)nram_buf, small_factors, nfft, t_start, t_end, 0,
+          load_once_twiddles);
+      FFT_SWAP_PTR(extra_buffer, buffer);
     }
   }  // for (stage_count)
 
@@ -221,13 +215,11 @@ __mlu_func__ void computeMutiStageOnchipC2R(DT *input, DT *output, int *factors,
     int small_twiddles_size = factors[small_factors_offset + 2];
     const DT *small_twiddles = _twiddles + tw_offset * 2;  // complex
 
-    if (__is_ipu()) {
-      if (repeat_num > 0 || taskId < remain_num) {
-        computeLargeButterflyLaststageBatchPingpongC2R(
-            output, buffer, radix, out_stride, section_num, small_twiddles,
-            small_twiddles_size, sram_dftmtx, (void *)nram_buf, small_factors,
-            nfft, t_start, t_end, load_once_twiddles);
-      }
+    if (repeat_num > 0 || taskId < remain_num) {
+      computeLargeButterflyLaststageBatchPingpongC2R(
+          output, buffer, radix, out_stride, section_num, small_twiddles,
+          small_twiddles_size, sram_dftmtx, (void *)nram_buf, small_factors,
+          nfft, t_start, t_end, load_once_twiddles);
     }
   }
 }

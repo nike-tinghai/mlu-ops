@@ -26,9 +26,10 @@
 // Compute the large butterfly for the first stage on the primary chip
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststage(
-    DT *output, DT *input, const int large_radix, int large_in_stride,
-    int section_num, const DT *twiddles, const DT *dft_matrix, void *nram_buf,
-    const int *small_factors, int dir, int nfft, int last_stage) {
+    DT *output, DT *input, const int large_radix, const int large_in_stride,
+    const int section_num, const DT *twiddles, const DT *dft_matrix,
+    void *nram_buf, const int *small_factors, const int dir, const int nfft,
+    const int last_stage) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
 
   int radix, small_in_stride, small_stage_count, _small_stage_count;
@@ -150,8 +151,7 @@ __mlu_func__ void computeLargeButterflyFirststage(
       __bang_transpose(nram_in_r, nram_para_load, large_radix * para_ldst_num,
                        2);
 
-      for (int compute_id = 0; compute_id < para_ldst_num;
-           compute_id += para_ldst_num) {
+      {
         radix = small_factors[4];
         small_section_num = small_factors[5];
         small_in_stride = small_factors[7];
@@ -193,95 +193,93 @@ __mlu_func__ void computeLargeButterflyFirststage(
                            NRAM2NRAM);
             __sync_compute();
           }
-
-          continue;
-        }
-
-        FFT_SWAP_PTR(nram_out_r, nram_in_r);
-        FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-        TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
-                               small_section_num, para_ldst_num, radix, DT)
-
-        value_mul = 8;
-        DT *nram_tw = _nram_tw;
-
-        for (; small_stage_count > 1; small_stage_count--) {
+        } else {
           FFT_SWAP_PTR(nram_out_r, nram_in_r);
           FFT_SWAP_PTR(nram_out_i, nram_in_i);
 
-          radix = small_factors[value_mul++];
-          small_section_num = small_factors[value_mul++];
-          small_butterfly_num = small_factors[value_mul++];
-          small_in_stride = small_factors[value_mul++];
+          TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
+                                 small_section_num, para_ldst_num, radix, DT)
 
-          if (ld_dft_radix != radix) {
-            ld_dft_radix = radix;
-            for (int entry = 0;; entry++) {
-              if (dft_table[entry].radix == ld_dft_radix) {
-                align_K = K_num * ((radix + K_num - 1) / K_num);
-                __memcpy_async(
-                    nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                    sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                __sync_move();
-                break;
-              }
+          value_mul = 8;
+          DT *nram_tw = _nram_tw;
 
-              if (dft_table[entry].radix == -1) {
-                break;
-              }
-            }
-          }
+          for (; small_stage_count > 1; small_stage_count--) {
+            FFT_SWAP_PTR(nram_out_r, nram_in_r);
+            FFT_SWAP_PTR(nram_out_i, nram_in_i);
 
-          computeGenericButterflyOtherstagesMat(
-              nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-              nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-              para_ldst_num, small_in_stride, dir, radix);
+            radix = small_factors[value_mul++];
+            small_section_num = small_factors[value_mul++];
+            small_butterfly_num = small_factors[value_mul++];
+            small_in_stride = small_factors[value_mul++];
 
-          nram_tw += small_butterfly_num * (radix - 1) * 2;
-        }
+            if (ld_dft_radix != radix) {
+              ld_dft_radix = radix;
+              for (int entry = 0;; entry++) {
+                if (dft_table[entry].radix == ld_dft_radix) {
+                  align_K = K_num * ((radix + K_num - 1) / K_num);
+                  __memcpy_async(
+                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                  __sync_move();
+                  break;
+                }
 
-        {
-          FFT_SWAP_PTR(nram_out_r, nram_in_r);
-          FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-          radix = small_factors[value_mul++];
-          small_section_num = small_factors[value_mul++];
-          small_butterfly_num = small_factors[value_mul++];
-          small_in_stride = small_factors[value_mul];
-
-          if (ld_dft_radix != radix) {
-            ld_dft_radix = radix;
-            for (int entry = 0;; entry++) {
-              if (dft_table[entry].radix == ld_dft_radix) {
-                align_K = K_num * ((radix + K_num - 1) / K_num);
-                __memcpy_async(
-                    nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                    sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                __sync_move();
-                break;
-              }
-
-              if (dft_table[entry].radix == -1) {
-                break;
+                if (dft_table[entry].radix == -1) {
+                  break;
+                }
               }
             }
+
+            computeGenericButterflyOtherstagesMat(
+                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                para_ldst_num, small_in_stride, dir, radix);
+
+            nram_tw += small_butterfly_num * (radix - 1) * 2;
           }
 
-          computeGenericButterflyLaststageMat(
-              nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-              nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-              para_ldst_num, small_in_stride, dir, radix);
+          {
+            FFT_SWAP_PTR(nram_out_r, nram_in_r);
+            FFT_SWAP_PTR(nram_out_i, nram_in_i);
 
-          if (last_stage) {
-            __bang_transpose(nram_para_store, nram_out_r, 2,
-                             max_para_ldst_num * large_radix);
-          } else {
-            __memcpy(nram_para_store, nram_out_r,
-                     para_ldst_num * large_radix * sizeof(DT), NRAM2NRAM);
-            __memcpy(nram_para_store + max_para_ldst_num * large_radix,
-                     nram_out_i, para_ldst_num * large_radix * sizeof(DT),
-                     NRAM2NRAM);
+            radix = small_factors[value_mul++];
+            small_section_num = small_factors[value_mul++];
+            small_butterfly_num = small_factors[value_mul++];
+            small_in_stride = small_factors[value_mul];
+
+            if (ld_dft_radix != radix) {
+              ld_dft_radix = radix;
+              for (int entry = 0;; entry++) {
+                if (dft_table[entry].radix == ld_dft_radix) {
+                  align_K = K_num * ((radix + K_num - 1) / K_num);
+                  __memcpy_async(
+                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                  __sync_move();
+                  break;
+                }
+
+                if (dft_table[entry].radix == -1) {
+                  break;
+                }
+              }
+            }
+
+            computeGenericButterflyLaststageMat(
+                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                para_ldst_num, small_in_stride, dir, radix);
+
+            if (last_stage) {
+              __bang_transpose(nram_para_store, nram_out_r, 2,
+                               max_para_ldst_num * large_radix);
+            } else {
+              __memcpy(nram_para_store, nram_out_r,
+                       para_ldst_num * large_radix * sizeof(DT), NRAM2NRAM);
+              __memcpy(nram_para_store + max_para_ldst_num * large_radix,
+                       nram_out_i, para_ldst_num * large_radix * sizeof(DT),
+                       NRAM2NRAM);
+            }
           }
         }
       }
@@ -294,11 +292,11 @@ __mlu_func__ void computeLargeButterflyFirststage(
 // processing on the primary chip
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
-    DT *output, DT *input, const int large_radix, int large_in_stride,
-    int section_num, const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, void *nram_buf, const int *small_factors, int dir,
-    int nfft, int last_stage, const int t_start, const int t_end,
-    const int load_once_twiddles) {
+    DT *output, DT *input, const int large_radix, const int large_in_stride,
+    const int section_num, const DT *small_twiddles,
+    const int small_twiddles_size, const DT *dft_matrix, void *nram_buf,
+    const int *small_factors, const int dir, const int nfft, int last_stage,
+    const int t_start, const int t_end, const int load_once_twiddles) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
   int radix, small_in_stride, small_stage_count, _small_stage_count;
   int small_section_num, small_butterfly_num, value_mul;
@@ -327,7 +325,7 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
   nram_buf_offset += large_radix * max_para_ldst_num * 2;
 
   DT *_nram_tw = (DT *)nram_buf + nram_buf_offset;
-  nram_buf_offset += large_radix * 2;
+  nram_buf_offset += small_twiddles_size;
 
   int ld_dft_radix[2] = {-1, -1};
   const int max_radix = 64;
@@ -402,8 +400,7 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
 
         __bang_transpose(nram_in_r, nram_para_load_pong, large_radix * para_num,
                          2);
-        for (int compute_id = 0; compute_id < para_num;
-             compute_id += para_num) {
+        {
           radix = small_factors[4];
           small_section_num = small_factors[5];
           small_in_stride = small_factors[7];
@@ -456,111 +453,111 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
               __sync_compute();
             }
 
-            continue;
-          }
-          FFT_SWAP_PTR(nram_out_r, nram_in_r);
-          FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-          TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
-                                 small_section_num, para_num, radix, DT)
-
-          value_mul = 8;
-          DT *nram_tw = _nram_tw;
-
-          for (; small_stage_count > 1; small_stage_count--) {
+          } else {
             FFT_SWAP_PTR(nram_out_r, nram_in_r);
             FFT_SWAP_PTR(nram_out_i, nram_in_i);
 
-            radix = small_factors[value_mul++];
-            small_section_num = small_factors[value_mul++];
-            small_butterfly_num = small_factors[value_mul++];
-            small_in_stride = small_factors[value_mul++];
+            TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
+                                   small_section_num, para_num, radix, DT)
 
-            if (ld_dft_radix[0] != radix && ld_dft_radix[1] != radix) {
-              ld_dft_radix[1] = ld_dft_radix[0];
-              FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
-              ld_dft_radix[0] = radix;
-              for (int entry = 0;; entry++) {
-                if (dft_table[entry].radix == ld_dft_radix[0]) {
-                  align_K = K_num * ((radix + K_num - 1) / K_num);
-                  __memcpy_async(nram_dftmtx[0],
-                                 &dft_matrix[dft_table[entry].offset * 2],
-                                 sizeof(DT) * 2 * radix * align_K, SRAM2NRAM);
-                  __sync_move();
-                  break;
-                }
+            value_mul = 8;
+            DT *nram_tw = _nram_tw;
 
-                if (dft_table[entry].radix == -1) {
-                  break;
+            for (; small_stage_count > 1; small_stage_count--) {
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+              radix = small_factors[value_mul++];
+              small_section_num = small_factors[value_mul++];
+              small_butterfly_num = small_factors[value_mul++];
+              small_in_stride = small_factors[value_mul++];
+
+              if (ld_dft_radix[0] != radix && ld_dft_radix[1] != radix) {
+                ld_dft_radix[1] = ld_dft_radix[0];
+                FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
+                ld_dft_radix[0] = radix;
+                for (int entry = 0;; entry++) {
+                  if (dft_table[entry].radix == ld_dft_radix[0]) {
+                    align_K = K_num * ((radix + K_num - 1) / K_num);
+                    __memcpy_async(nram_dftmtx[0],
+                                   &dft_matrix[dft_table[entry].offset * 2],
+                                   sizeof(DT) * 2 * radix * align_K, SRAM2NRAM);
+                    __sync_move();
+                    break;
+                  }
+
+                  if (dft_table[entry].radix == -1) {
+                    break;
+                  }
                 }
+              } else if (ld_dft_radix[1] == radix) {
+                ld_dft_radix[1] = ld_dft_radix[0];
+                ld_dft_radix[0] = radix;
+                FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
               }
-            } else if (ld_dft_radix[1] == radix) {
-              ld_dft_radix[1] = ld_dft_radix[0];
-              ld_dft_radix[0] = radix;
-              FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
-            }
 
-            computeGenericButterflyOtherstagesMat(
-                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                nram_dftmtx[0], nram_tw, small_section_num, small_butterfly_num,
-                para_num, small_in_stride, dir, radix);
-
-            nram_tw += small_butterfly_num * (radix - 1) * 2;
-          }
-
-          {
-            FFT_SWAP_PTR(nram_out_r, nram_in_r);
-            FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-            radix = small_factors[value_mul++];
-            small_section_num = small_factors[value_mul++];
-            small_butterfly_num = small_factors[value_mul++];
-            small_in_stride = small_factors[value_mul];
-
-            if (ld_dft_radix[0] != radix && ld_dft_radix[1] != radix) {
-              ld_dft_radix[1] = ld_dft_radix[0];
-              FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
-              ld_dft_radix[0] = radix;
-              for (int entry = 0;; entry++) {
-                if (dft_table[entry].radix == ld_dft_radix[0]) {
-                  align_K = K_num * ((radix + K_num - 1) / K_num);
-                  __memcpy_async(nram_dftmtx[0],
-                                 &dft_matrix[dft_table[entry].offset * 2],
-                                 sizeof(DT) * 2 * radix * align_K, SRAM2NRAM);
-                  __sync_move();
-                  break;
-                }
-
-                if (dft_table[entry].radix == -1) {
-                  break;
-                }
-              }
-            } else if (ld_dft_radix[1] == radix) {
-              ld_dft_radix[1] = ld_dft_radix[0];
-              ld_dft_radix[0] = radix;
-              FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
-            }
-
-            if (last_stage) {
-              computeGenericButterflyLaststageMat(
+              computeGenericButterflyOtherstagesMat(
                   nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
                   nram_dftmtx[0], nram_tw, small_section_num,
                   small_butterfly_num, para_num, small_in_stride, dir, radix);
-            } else {
-              computeGenericButterflyLaststageMat(
-                  nram_para_store_pong,
-                  nram_para_store_pong + max_para_ldst_num * large_radix,
-                  nram_in_r, nram_in_i, nram_scratch, nram_dftmtx[0], nram_tw,
-                  small_section_num, small_butterfly_num, para_num,
-                  small_in_stride, dir, radix);
+
+              nram_tw += small_butterfly_num * (radix - 1) * 2;
             }
 
-            if (last_stage) {
-              if (nram_out_r == nram_para_store_pong) {
-                FFT_SWAP_PTR(nram_para_load_pong, nram_para_store_pong)
+            {
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+              radix = small_factors[value_mul++];
+              small_section_num = small_factors[value_mul++];
+              small_butterfly_num = small_factors[value_mul++];
+              small_in_stride = small_factors[value_mul];
+
+              if (ld_dft_radix[0] != radix && ld_dft_radix[1] != radix) {
+                ld_dft_radix[1] = ld_dft_radix[0];
+                FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
+                ld_dft_radix[0] = radix;
+                for (int entry = 0;; entry++) {
+                  if (dft_table[entry].radix == ld_dft_radix[0]) {
+                    align_K = K_num * ((radix + K_num - 1) / K_num);
+                    __memcpy_async(nram_dftmtx[0],
+                                   &dft_matrix[dft_table[entry].offset * 2],
+                                   sizeof(DT) * 2 * radix * align_K, SRAM2NRAM);
+                    __sync_move();
+                    break;
+                  }
+
+                  if (dft_table[entry].radix == -1) {
+                    break;
+                  }
+                }
+              } else if (ld_dft_radix[1] == radix) {
+                ld_dft_radix[1] = ld_dft_radix[0];
+                ld_dft_radix[0] = radix;
+                FFT_SWAP_PTR(nram_dftmtx[0], nram_dftmtx[1]);
               }
-              __bang_transpose(nram_para_store_pong, nram_out_r, 2,
-                               max_para_ldst_num * large_radix);
+
+              if (last_stage) {
+                computeGenericButterflyLaststageMat(
+                    nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                    nram_dftmtx[0], nram_tw, small_section_num,
+                    small_butterfly_num, para_num, small_in_stride, dir, radix);
+              } else {
+                computeGenericButterflyLaststageMat(
+                    nram_para_store_pong,
+                    nram_para_store_pong + max_para_ldst_num * large_radix,
+                    nram_in_r, nram_in_i, nram_scratch, nram_dftmtx[0], nram_tw,
+                    small_section_num, small_butterfly_num, para_num,
+                    small_in_stride, dir, radix);
+              }
+
+              if (last_stage) {
+                if (nram_out_r == nram_para_store_pong) {
+                  FFT_SWAP_PTR(nram_para_load_pong, nram_para_store_pong)
+                }
+                __bang_transpose(nram_para_store_pong, nram_out_r, 2,
+                                 max_para_ldst_num * large_radix);
+              }
             }
           }
         }
@@ -577,9 +574,10 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
 template <typename DT>
 __mlu_func__ void computeLargeButterflyOtherstages(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
-    const DT *_twiddles, const DT *dft_matrix, int large_section_num,
-    int large_butterfly_num, int large_in_stride, void *nram_buf,
-    const int *small_factors, int nfft, int dir, int last_stage) {
+    const DT *_twiddles, const DT *dft_matrix, const int large_section_num,
+    const int large_butterfly_num, const int large_in_stride, void *nram_buf,
+    const int *small_factors, const int nfft, const int dir,
+    const int last_stage) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
   const int K_num = 64 / sizeof(DT);
   int align_K = 0;
@@ -760,8 +758,7 @@ __mlu_func__ void computeLargeButterflyOtherstages(
         __bang_add(nram_para_load_in.i + para_ldst_num, CPX_MUL_RI, CPX_MUL_IR,
                    para_ldst_num * (large_radix - 1));
 
-        for (int compute_id = 0; compute_id < para_ldst_num;
-             compute_id += para_ldst_num) {
+        {
           radix = small_factors[4];
           small_section_num = small_factors[5];
           small_in_stride = small_factors[7];
@@ -793,128 +790,13 @@ __mlu_func__ void computeLargeButterflyOtherstages(
           small_stage_count--;
           if (small_stage_count == 0) {
             if (last_stage) {
-              __memcpy_async(nram_transpose_temp.r + compute_id * large_radix *
-                                                         (1 + (int)last_stage),
-                             nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
+              __memcpy_async(nram_transpose_temp.r, nram_out_r,
+                             sizeof(DT) * large_radix, NRAM2NRAM,
                              sizeof(DT) * large_radix * 2,
                              sizeof(DT) * large_radix, para_ldst_num - 1);
 
-              __memcpy_async(nram_transpose_temp.i + compute_id * large_radix *
-                                                         (1 + (int)last_stage),
-                             nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
-                             sizeof(DT) * large_radix * 2,
-                             sizeof(DT) * large_radix, para_ldst_num - 1);
-              __sync_move();
-
-              __bang_transpose(nram_para_store.r, nram_transpose_temp.r,
-                               para_ldst_num * 2, large_radix);
-            } else {
-              __bang_transpose(nram_para_store.r, nram_out_r, para_ldst_num,
-                               large_radix);
-              __bang_transpose(nram_para_store.i, nram_out_i, para_ldst_num,
-                               large_radix);
-            }
-
-            continue;
-          }
-
-          FFT_SWAP_PTR(nram_out_r, nram_in_r);
-          FFT_SWAP_PTR(nram_out_i, nram_in_i);
-          TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
-                                 small_section_num, para_ldst_num, radix, DT)
-          DT *nram_tw = _nram_tw;
-          value_mul = 8;
-
-          for (; small_stage_count > 1; small_stage_count--) {
-            FFT_SWAP_PTR(nram_out_r, nram_in_r);
-            FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-            radix = small_factors[value_mul++];
-            small_section_num = small_factors[value_mul++];
-            small_butterfly_num = small_factors[value_mul++];
-            small_in_stride = small_factors[value_mul++];
-
-            if (ld_dft_radix != radix) {
-              ld_dft_radix = radix;
-              for (int entry = 0;; entry++) {
-                if (dft_table[entry].radix == ld_dft_radix) {
-                  align_K = K_num * ((radix + K_num - 1) / K_num);
-                  __memcpy_async(
-                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                  __sync_move();
-                  break;
-                }
-
-                if (dft_table[entry].radix == -1) {
-                  break;
-                }
-              }
-            }
-
-            if (sec_count == 0 && compute_id == 0 && repeat_id == 1) {
-              __memcpy(nram_tw, small_twiddles,
-                       small_butterfly_num * (radix - 1) * sizeof(DT) * 2,
-                       SRAM2NRAM);
-              small_twiddles += small_butterfly_num * (radix - 1) * 2;
-            }
-
-            computeGenericButterflyOtherstagesMat(
-                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-                para_ldst_num, small_in_stride, dir, radix);
-
-            nram_tw += small_butterfly_num * (radix - 1) * 2;
-          }
-
-          {
-            FFT_SWAP_PTR(nram_out_r, nram_in_r);
-            FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-            radix = small_factors[value_mul++];
-            small_section_num = small_factors[value_mul++];
-            small_butterfly_num = small_factors[value_mul++];
-            small_in_stride = small_factors[value_mul];
-
-            if (sec_count == 0 && compute_id == 0 && repeat_id == 1) {
-              __memcpy_async(nram_tw, small_twiddles,
-                             small_butterfly_num * (radix - 1) * sizeof(DT) * 2,
-                             SRAM2NRAM);
-              __sync_move();
-            }
-
-            if (ld_dft_radix != radix) {
-              ld_dft_radix = radix;
-              for (int entry = 0;; entry++) {
-                if (dft_table[entry].radix == ld_dft_radix) {
-                  align_K = K_num * ((radix + K_num - 1) / K_num);
-                  __memcpy_async(
-                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                  __sync_move();
-                  break;
-                }
-
-                if (dft_table[entry].radix == -1) {
-                  break;
-                }
-              }
-            }
-            computeGenericButterflyLaststageMat(
-                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-                para_ldst_num, small_in_stride, dir, radix);
-
-            if (last_stage) {
-              __memcpy_async(nram_transpose_temp.r + compute_id * large_radix *
-                                                         (1 + (int)last_stage),
-                             nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
-                             sizeof(DT) * large_radix * 2,
-                             sizeof(DT) * large_radix, para_ldst_num - 1);
-
-              __memcpy_async(nram_transpose_temp.i + compute_id * large_radix *
-                                                         (1 + (int)last_stage),
-                             nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
+              __memcpy_async(nram_transpose_temp.i, nram_out_i,
+                             sizeof(DT) * large_radix, NRAM2NRAM,
                              sizeof(DT) * large_radix * 2,
                              sizeof(DT) * large_radix, para_ldst_num - 1);
               __sync_move();
@@ -926,6 +808,117 @@ __mlu_func__ void computeLargeButterflyOtherstages(
                                large_radix);
               __bang_transpose(nram_para_store.i, nram_out_i, para_ldst_num,
                                large_radix);
+            }
+
+          } else {
+            FFT_SWAP_PTR(nram_out_r, nram_in_r);
+            FFT_SWAP_PTR(nram_out_i, nram_in_i);
+            TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
+                                   small_section_num, para_ldst_num, radix, DT)
+            DT *nram_tw = _nram_tw;
+            value_mul = 8;
+
+            for (; small_stage_count > 1; small_stage_count--) {
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+              radix = small_factors[value_mul++];
+              small_section_num = small_factors[value_mul++];
+              small_butterfly_num = small_factors[value_mul++];
+              small_in_stride = small_factors[value_mul++];
+
+              if (ld_dft_radix != radix) {
+                ld_dft_radix = radix;
+                for (int entry = 0;; entry++) {
+                  if (dft_table[entry].radix == ld_dft_radix) {
+                    align_K = K_num * ((radix + K_num - 1) / K_num);
+                    __memcpy_async(
+                        nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                        sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                    __sync_move();
+                    break;
+                  }
+
+                  if (dft_table[entry].radix == -1) {
+                    break;
+                  }
+                }
+              }
+
+              if (sec_count == 0 && repeat_id == 1) {
+                __memcpy(nram_tw, small_twiddles,
+                         small_butterfly_num * (radix - 1) * sizeof(DT) * 2,
+                         SRAM2NRAM);
+                small_twiddles += small_butterfly_num * (radix - 1) * 2;
+              }
+
+              computeGenericButterflyOtherstagesMat(
+                  nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                  nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                  para_ldst_num, small_in_stride, dir, radix);
+
+              nram_tw += small_butterfly_num * (radix - 1) * 2;
+            }
+
+            {
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+              radix = small_factors[value_mul++];
+              small_section_num = small_factors[value_mul++];
+              small_butterfly_num = small_factors[value_mul++];
+              small_in_stride = small_factors[value_mul];
+
+              if (sec_count == 0 && repeat_id == 1) {
+                __memcpy_async(
+                    nram_tw, small_twiddles,
+                    small_butterfly_num * (radix - 1) * sizeof(DT) * 2,
+                    SRAM2NRAM);
+                __sync_move();
+              }
+
+              if (ld_dft_radix != radix) {
+                ld_dft_radix = radix;
+                for (int entry = 0;; entry++) {
+                  if (dft_table[entry].radix == ld_dft_radix) {
+                    align_K = K_num * ((radix + K_num - 1) / K_num);
+                    __memcpy_async(
+                        nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                        sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                    __sync_move();
+                    break;
+                  }
+
+                  if (dft_table[entry].radix == -1) {
+                    break;
+                  }
+                }
+              }
+              computeGenericButterflyLaststageMat(
+                  nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                  nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                  para_ldst_num, small_in_stride, dir, radix);
+
+              if (last_stage) {
+                __memcpy_async(nram_transpose_temp.r, nram_out_r,
+                               sizeof(DT) * large_radix, NRAM2NRAM,
+                               sizeof(DT) * large_radix * 2,
+                               sizeof(DT) * large_radix, para_ldst_num - 1);
+
+                __memcpy_async(nram_transpose_temp.i, nram_out_i,
+                               sizeof(DT) * large_radix, NRAM2NRAM,
+                               sizeof(DT) * large_radix * 2,
+                               sizeof(DT) * large_radix, para_ldst_num - 1);
+                __sync_move();
+
+                __bang_transpose(nram_para_store.r, nram_transpose_temp.r,
+                                 para_ldst_num * 2, large_radix);
+              } else {
+                __bang_transpose(nram_para_store.r, nram_out_r, para_ldst_num,
+                                 large_radix);
+                __bang_transpose(nram_para_store.i, nram_out_i, para_ldst_num,
+                                 large_radix);
+              }
             }
           }
         }
@@ -941,9 +934,9 @@ __mlu_func__ void computeLargeButterflyOtherstages(
 template <typename DT>
 __mlu_func__ void computeLargeButterflyLaststage(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
-    const DT *_twiddles, const DT *dft_matrix, int large_section_num,
-    int large_butterfly_num, int large_in_stride, void *nram_buf,
-    const int *small_factors, int nfft, int dir) {
+    const DT *_twiddles, const DT *dft_matrix, const int large_section_num,
+    const int large_butterfly_num, const int large_in_stride, void *nram_buf,
+    const int *small_factors, const int nfft, const int dir) {
   computeLargeButterflyOtherstages(
       output, input, large_radix, cur_large_twiddles, _twiddles, dft_matrix,
       large_section_num, large_butterfly_num, large_in_stride, nram_buf,
@@ -955,9 +948,10 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_in_stride, void *nram_buf, const int *small_factors, int nfft,
-    const int t_start, const int t_end, int dir, int last_stage,
+    const DT *dft_matrix, const int large_section_num,
+    const int large_butterfly_num, const int large_in_stride, void *nram_buf,
+    const int *small_factors, const int nfft, const int t_start,
+    const int t_end, const int dir, const int last_stage,
     const int load_once_twiddles) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
 
@@ -1003,7 +997,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
   nram_buf_offset += large_radix * max_para_ldst_num * 2;  // complex
 
   DT *_nram_tw = (DT *)nram_buf + nram_buf_offset;
-  nram_buf_offset += large_radix * 2;  // complex
+  nram_buf_offset += small_twiddles_size;  // complex
 
   int ld_dft_radix = -1;
   const int max_radix = 64;
@@ -1022,17 +1016,6 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
 
   // overlap nram_in
   FFT_CPX_T<DT> nram_transpose_temp;
-  // temp out-space before transpose
-  // if last-stage:
-  //                compute_id 0 r
-  //                compute_id 0 i
-  //                compute_id 1 r
-  //                compute_id 1 i
-  // else:
-  //                compute_id 0 r
-  //                compute_id 1 i
-  //                compute_id 0 r
-  //                compute_id 1 i
   nram_transpose_temp = {
       (DT *)nram_buf + nram_buf_offset,
       (DT *)nram_buf + nram_buf_offset + large_radix * ((int)last_stage) +
@@ -1158,8 +1141,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
           __bang_add(nram_para_load_in_pong.i + para_num, CPX_MUL_RI,
                      CPX_MUL_IR, para_num * (large_radix - 1));
 
-          for (int compute_id = 0; compute_id < para_num;
-               compute_id += para_num) {
+          {
             // load real & imag
 
             radix = small_factors[4];
@@ -1205,15 +1187,13 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
 
               // [nfft, 2] -> [2, nfft] -> [2, nfft] -> [nfft, 2]
               if (last_stage) {
-                __memcpy(nram_transpose_temp.r +
-                             compute_id * large_radix * (1 + (int)last_stage),
-                         nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
+                __memcpy(nram_transpose_temp.r, nram_out_r,
+                         sizeof(DT) * large_radix, NRAM2NRAM,
                          sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
                          para_num - 1);
 
-                __memcpy(nram_transpose_temp.i +
-                             compute_id * large_radix * (1 + (int)last_stage),
-                         nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
+                __memcpy(nram_transpose_temp.i, nram_out_i,
+                         sizeof(DT) * large_radix, NRAM2NRAM,
                          sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
                          para_num - 1);
 
@@ -1230,107 +1210,17 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
                                  large_radix);
               }
 
-              continue;
-            }
-
-            FFT_SWAP_PTR(nram_out_r, nram_in_r);
-            FFT_SWAP_PTR(nram_out_i, nram_in_i);
-            // DT* nram_transpose_store = nram_in_r;
-
-            // after first stage: [butterfly_num, para_ldst_num, radix]
-            // other in: [para_ldst_num, butterfly_num, radix] ==
-            // [para_ldst_num, large_radix]
-            TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
-                                   small_section_num, para_num, radix, DT)
-
-            // if last-stage: stride = large_radix * 2
-            //                compute_id 0 r
-            //                compute_id 0 i
-            //                compute_id 1 r
-            //                compute_id 1 i
-            // else: stride = large_radix
-            //                compute_id 0 r
-            //                compute_id 1 i
-            //                compute_id 0 r
-            //                compute_id 1 i
-
-            // [radix, small_section_num, para_ldst_num] ->
-            // [small_section_num, para_ldst_num, radix] ->
-            // [para_ldst_num, small_section_num, radix] ->
-            // [small_section_num, radix, para_ldst_num] ==
-            // [large_radix, para_ldst_num]
-
-            DT *nram_tw = _nram_tw;
-            value_mul = 8;
-
-            for (; small_stage_count > 1; small_stage_count--) {
+            } else {
               FFT_SWAP_PTR(nram_out_r, nram_in_r);
               FFT_SWAP_PTR(nram_out_i, nram_in_i);
+              // DT* nram_transpose_store = nram_in_r;
 
-              // // update parameter
-              radix = small_factors[value_mul++];
-              small_section_num = small_factors[value_mul++];
-              small_butterfly_num = small_factors[value_mul++];
-              small_in_stride = small_factors[value_mul++];
-
-              if (ld_dft_radix != radix) {
-                ld_dft_radix = radix;
-                for (int entry = 0;; entry++) {
-                  if (dft_table[entry].radix == ld_dft_radix) {
-                    align_K = K_num * ((radix + K_num - 1) / K_num);
-                    __memcpy_async(
-                        nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                        sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                    __sync_move();
-                    break;
-                  }
-
-                  if (dft_table[entry].radix == -1) {
-                    break;
-                  }
-                }
-              }
-
-              computeGenericButterflyOtherstagesMat(
-                  nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                  nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-                  para_num, small_in_stride, dir, radix);
-
-              nram_tw += small_butterfly_num * (radix - 1) * 2;
-            }  // for (stage_count)
-
-            // last stage
-            {
-              FFT_SWAP_PTR(nram_out_r, nram_in_r);
-              FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-              // update parameter
-              radix = small_factors[value_mul++];
-              small_section_num = small_factors[value_mul++];
-              small_butterfly_num = small_factors[value_mul++];
-              small_in_stride = small_factors[value_mul];
-
-              if (ld_dft_radix != radix) {
-                ld_dft_radix = radix;
-                for (int entry = 0;; entry++) {
-                  if (dft_table[entry].radix == ld_dft_radix) {
-                    align_K = K_num * ((radix + K_num - 1) / K_num);
-                    __memcpy_async(
-                        nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                        sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                    __sync_move();
-                    break;
-                  }
-
-                  if (dft_table[entry].radix == -1) {
-                    break;
-                  }
-                }
-              }
-              computeGenericButterflyLaststageMat(
-                  nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                  nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-                  para_num, small_in_stride, dir, radix);
+              // after first stage: [butterfly_num, para_ldst_num, radix]
+              // other in: [para_ldst_num, butterfly_num, radix] ==
+              // [para_ldst_num, large_radix]
+              TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r,
+                                     nram_in_i, small_section_num, para_num,
+                                     radix, DT)
 
               // if last-stage: stride = large_radix * 2
               //                compute_id 0 r
@@ -1343,31 +1233,122 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
               //                compute_id 0 r
               //                compute_id 1 i
 
-              if (last_stage) {
-                __memcpy(nram_transpose_temp.r +
-                             compute_id * large_radix * (1 + (int)last_stage),
-                         nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
-                         sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
-                         para_num - 1);
+              // [radix, small_section_num, para_ldst_num] ->
+              // [small_section_num, para_ldst_num, radix] ->
+              // [para_ldst_num, small_section_num, radix] ->
+              // [small_section_num, radix, para_ldst_num] ==
+              // [large_radix, para_ldst_num]
 
-                __memcpy(nram_transpose_temp.i +
-                             compute_id * large_radix * (1 + (int)last_stage),
-                         nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
-                         sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
-                         para_num - 1);
+              DT *nram_tw = _nram_tw;
+              value_mul = 8;
 
-                __bang_transpose(nram_para_store_pong.r, nram_transpose_temp.r,
-                                 para_num * 2, large_radix);
-              } else {
-                if (nram_out_r == nram_para_store_pong.r) {
-                  FFT_SWAP_PTR(nram_para_load_in_pong.r, nram_para_store_pong.r)
-                  FFT_SWAP_PTR(nram_para_load_in_pong.i, nram_para_store_pong.i)
+              for (; small_stage_count > 1; small_stage_count--) {
+                FFT_SWAP_PTR(nram_out_r, nram_in_r);
+                FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+                // // update parameter
+                radix = small_factors[value_mul++];
+                small_section_num = small_factors[value_mul++];
+                small_butterfly_num = small_factors[value_mul++];
+                small_in_stride = small_factors[value_mul++];
+
+                if (ld_dft_radix != radix) {
+                  ld_dft_radix = radix;
+                  for (int entry = 0;; entry++) {
+                    if (dft_table[entry].radix == ld_dft_radix) {
+                      align_K = K_num * ((radix + K_num - 1) / K_num);
+                      __memcpy_async(
+                          nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                          sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                      __sync_move();
+                      break;
+                    }
+
+                    if (dft_table[entry].radix == -1) {
+                      break;
+                    }
+                  }
                 }
 
-                __bang_transpose(nram_para_store_pong.r, nram_out_r, para_num,
-                                 large_radix);
-                __bang_transpose(nram_para_store_pong.i, nram_out_i, para_num,
-                                 large_radix);
+                computeGenericButterflyOtherstagesMat(
+                    nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                    nram_dftmtx, nram_tw, small_section_num,
+                    small_butterfly_num, para_num, small_in_stride, dir, radix);
+
+                nram_tw += small_butterfly_num * (radix - 1) * 2;
+              }  // for (stage_count)
+
+              // last stage
+              {
+                FFT_SWAP_PTR(nram_out_r, nram_in_r);
+                FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+                // update parameter
+                radix = small_factors[value_mul++];
+                small_section_num = small_factors[value_mul++];
+                small_butterfly_num = small_factors[value_mul++];
+                small_in_stride = small_factors[value_mul];
+
+                if (ld_dft_radix != radix) {
+                  ld_dft_radix = radix;
+                  for (int entry = 0;; entry++) {
+                    if (dft_table[entry].radix == ld_dft_radix) {
+                      align_K = K_num * ((radix + K_num - 1) / K_num);
+                      __memcpy_async(
+                          nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                          sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                      __sync_move();
+                      break;
+                    }
+
+                    if (dft_table[entry].radix == -1) {
+                      break;
+                    }
+                  }
+                }
+                computeGenericButterflyLaststageMat(
+                    nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                    nram_dftmtx, nram_tw, small_section_num,
+                    small_butterfly_num, para_num, small_in_stride, dir, radix);
+
+                // if last-stage: stride = large_radix * 2
+                //                compute_id 0 r
+                //                compute_id 0 i
+                //                compute_id 1 r
+                //                compute_id 1 i
+                // else: stride = large_radix
+                //                compute_id 0 r
+                //                compute_id 1 i
+                //                compute_id 0 r
+                //                compute_id 1 i
+
+                if (last_stage) {
+                  __memcpy(nram_transpose_temp.r, nram_out_r,
+                           sizeof(DT) * large_radix, NRAM2NRAM,
+                           sizeof(DT) * large_radix * 2,
+                           sizeof(DT) * large_radix, para_num - 1);
+
+                  __memcpy(nram_transpose_temp.i, nram_out_i,
+                           sizeof(DT) * large_radix, NRAM2NRAM,
+                           sizeof(DT) * large_radix * 2,
+                           sizeof(DT) * large_radix, para_num - 1);
+
+                  __bang_transpose(nram_para_store_pong.r,
+                                   nram_transpose_temp.r, para_num * 2,
+                                   large_radix);
+                } else {
+                  if (nram_out_r == nram_para_store_pong.r) {
+                    FFT_SWAP_PTR(nram_para_load_in_pong.r,
+                                 nram_para_store_pong.r)
+                    FFT_SWAP_PTR(nram_para_load_in_pong.i,
+                                 nram_para_store_pong.i)
+                  }
+
+                  __bang_transpose(nram_para_store_pong.r, nram_out_r, para_num,
+                                   large_radix);
+                  __bang_transpose(nram_para_store_pong.i, nram_out_i, para_num,
+                                   large_radix);
+                }
               }
             }
           }
@@ -1387,9 +1368,10 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyLaststageBatchPingpong(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_in_stride, void *nram_buf, const int *small_factors, int nfft,
-    const int t_start, const int t_end, int dir, const int load_once_twiddles) {
+    const DT *dft_matrix, const int large_section_num,
+    const int large_butterfly_num, const int large_in_stride, void *nram_buf,
+    const int *small_factors, const int nfft, const int t_start,
+    const int t_end, const int dir, const int load_once_twiddles) {
   computeLargeButterflyOtherstagesBatchPingpong(
       output, input, large_radix, cur_large_twiddles, small_twiddles,
       small_twiddles_size, dft_matrix, large_section_num, large_butterfly_num,
@@ -1401,10 +1383,11 @@ __mlu_func__ void computeLargeButterflyLaststageBatchPingpong(
 // processing
 template <typename DT>
 __mlu_func__ void computeLargeButterflyFirststageColumn(
-    DT *output, DT *input, const int large_radix, int large_in_stride,
-    int section_num, const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, void *nram_buf, const int *small_factors, int dir,
-    int nfft, int last_stage, const int para_batch, const int nb,
+    DT *output, DT *input, const int large_radix, const int large_in_stride,
+    const int section_num, const DT *small_twiddles,
+    const int small_twiddles_size, const DT *dft_matrix, void *nram_buf,
+    const int *small_factors, const int dir, const int nfft,
+    const int last_stage, const int para_batch, const int nb,
     const int load_once_twiddles) {
   // constant
   const int K_num = 64 / sizeof(DT);
@@ -1526,8 +1509,7 @@ __mlu_func__ void computeLargeButterflyFirststageColumn(
       __bang_transpose(nram_in_r, nram_para_load_pong, large_radix * para_batch,
                        2);
 
-      for (int compute_id = 0; compute_id < para_batch;
-           compute_id += para_batch) {
+      {
         // load real & imag
 
         radix = small_factors[4];
@@ -1587,112 +1569,111 @@ __mlu_func__ void computeLargeButterflyFirststageColumn(
                      NRAM2NRAM);
           }
 
-          continue;
-        }
-
-        FFT_SWAP_PTR(nram_out_r, nram_in_r);
-        FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-        TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
-                               small_section_num, para_batch, radix, DT)
-
-        value_mul = 8;
-        DT *nram_tw = _nram_tw;
-
-        for (; small_stage_count > 1; small_stage_count--) {
+        } else {
           FFT_SWAP_PTR(nram_out_r, nram_in_r);
           FFT_SWAP_PTR(nram_out_i, nram_in_i);
 
-          // update parameter
-          radix = small_factors[value_mul++];
-          small_section_num = small_factors[value_mul++];
-          small_butterfly_num = small_factors[value_mul++];
-          small_in_stride = small_factors[value_mul++];
+          TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
+                                 small_section_num, para_batch, radix, DT)
 
-          if (ld_dft_radix != radix) {
-            ld_dft_radix = radix;
-            for (int entry = 0;; entry++) {
-              if (dft_table[entry].radix == ld_dft_radix) {
-                align_K = K_num * ((radix + K_num - 1) / K_num);
-                __memcpy_async(
-                    nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                    sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                __sync_move();
-                break;
-              }
+          value_mul = 8;
+          DT *nram_tw = _nram_tw;
 
-              if (dft_table[entry].radix == -1) {
-                break;
-              }
-            }
-          }
-
-          computeGenericButterflyOtherstagesMat(
-              nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-              nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-              para_batch, small_in_stride, dir, radix);
-
-          nram_tw += small_butterfly_num * (radix - 1) * 2;
-        }  // for (stage_count)
-
-        // last stage
-        {
-          FFT_SWAP_PTR(nram_out_r, nram_in_r);
-          FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-          // update parameter
-          radix = small_factors[value_mul++];
-          small_section_num = small_factors[value_mul++];
-          small_butterfly_num = small_factors[value_mul++];
-          small_in_stride = small_factors[value_mul];
-
-          if (ld_dft_radix != radix) {
-            ld_dft_radix = radix;
-            for (int entry = 0;; entry++) {
-              if (dft_table[entry].radix == ld_dft_radix) {
-                align_K = K_num * ((radix + K_num - 1) / K_num);
-                __memcpy_async(
-                    nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                    sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                __sync_move();
-                break;
-              }
-
-              if (dft_table[entry].radix == -1) {
-                break;
-              }
-            }
-          }
-
-          computeGenericButterflyLaststageMat(
-              nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-              nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-              para_batch, small_in_stride, dir, radix);
-
-          if (last_stage) {
-            //  [2, para_batch, large_radix] -> [para_batch, large_radix,
-            //  2]
+          for (; small_stage_count > 1; small_stage_count--) {
             FFT_SWAP_PTR(nram_out_r, nram_in_r);
             FFT_SWAP_PTR(nram_out_i, nram_in_i);
-            __bang_transpose(nram_out_r, nram_in_r, para_batch, large_radix);
-            __bang_transpose(nram_out_i, nram_in_i, para_batch, large_radix);
 
-            if (nram_out_r == nram_para_store_pong) {
-              FFT_SWAP_PTR(nram_para_load_pong, nram_para_store_pong)
+            // update parameter
+            radix = small_factors[value_mul++];
+            small_section_num = small_factors[value_mul++];
+            small_butterfly_num = small_factors[value_mul++];
+            small_in_stride = small_factors[value_mul++];
+
+            if (ld_dft_radix != radix) {
+              ld_dft_radix = radix;
+              for (int entry = 0;; entry++) {
+                if (dft_table[entry].radix == ld_dft_radix) {
+                  align_K = K_num * ((radix + K_num - 1) / K_num);
+                  __memcpy_async(
+                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                  __sync_move();
+                  break;
+                }
+
+                if (dft_table[entry].radix == -1) {
+                  break;
+                }
+              }
             }
 
-            __bang_transpose(nram_para_store_pong, nram_out_r, 2,
-                             para_batch * large_radix);
+            computeGenericButterflyOtherstagesMat(
+                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                para_batch, small_in_stride, dir, radix);
 
-          } else {
-            if (nram_out_r == nram_para_store_pong) {
-              FFT_SWAP_PTR(nram_para_load_pong, nram_para_store_pong)
+            nram_tw += small_butterfly_num * (radix - 1) * 2;
+          }  // for (stage_count)
+
+          // last stage
+          {
+            FFT_SWAP_PTR(nram_out_r, nram_in_r);
+            FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+            // update parameter
+            radix = small_factors[value_mul++];
+            small_section_num = small_factors[value_mul++];
+            small_butterfly_num = small_factors[value_mul++];
+            small_in_stride = small_factors[value_mul];
+
+            if (ld_dft_radix != radix) {
+              ld_dft_radix = radix;
+              for (int entry = 0;; entry++) {
+                if (dft_table[entry].radix == ld_dft_radix) {
+                  align_K = K_num * ((radix + K_num - 1) / K_num);
+                  __memcpy_async(
+                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                  __sync_move();
+                  break;
+                }
+
+                if (dft_table[entry].radix == -1) {
+                  break;
+                }
+              }
             }
 
-            __bang_transpose(nram_para_store_pong, nram_out_r, para_batch,
-                             large_radix);
-            __bang_transpose(nram_para_store_pong + para_batch * large_radix,
-                             nram_out_i, para_batch, large_radix);
+            computeGenericButterflyLaststageMat(
+                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                para_batch, small_in_stride, dir, radix);
+
+            if (last_stage) {
+              //  [2, para_batch, large_radix] -> [para_batch, large_radix,
+              //  2]
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+              __bang_transpose(nram_out_r, nram_in_r, para_batch, large_radix);
+              __bang_transpose(nram_out_i, nram_in_i, para_batch, large_radix);
+
+              if (nram_out_r == nram_para_store_pong) {
+                FFT_SWAP_PTR(nram_para_load_pong, nram_para_store_pong)
+              }
+
+              __bang_transpose(nram_para_store_pong, nram_out_r, 2,
+                               para_batch * large_radix);
+
+            } else {
+              if (nram_out_r == nram_para_store_pong) {
+                FFT_SWAP_PTR(nram_para_load_pong, nram_para_store_pong)
+              }
+
+              __bang_transpose(nram_para_store_pong, nram_out_r, para_batch,
+                               large_radix);
+              __bang_transpose(nram_para_store_pong + para_batch * large_radix,
+                               nram_out_i, para_batch, large_radix);
+            }
           }
         }
       }
@@ -1709,9 +1690,10 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyOtherstagesColumn(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_in_stride, void *nram_buf, const int *small_factors, int nfft,
-    int dir, int last_stage, int para_batch, int nb,
+    const DT *dft_matrix, const int large_section_num,
+    const int large_butterfly_num, const int large_in_stride, void *nram_buf,
+    const int *small_factors, const int nfft, const int dir,
+    const int last_stage, const int para_batch, const int nb,
     const int load_once_twiddles) {
   const dft_table_entry *dft_table = (const dft_table_entry *)dft_matrix;
 
@@ -1922,8 +1904,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesColumn(
                      para_batch * (large_radix - 1));
         }
 
-        for (int compute_id = 0; compute_id < para_batch;
-             compute_id += para_batch) {
+        {
           radix = small_factors[4];
           small_section_num = small_factors[5];
           small_in_stride = small_factors[7];
@@ -1962,116 +1943,13 @@ __mlu_func__ void computeLargeButterflyOtherstagesColumn(
           small_stage_count--;
           if (small_stage_count == 0) {
             if (last_stage) {
-              __memcpy(nram_transpose_temp.r + compute_id * large_radix * 2,
-                       nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
+              __memcpy(nram_transpose_temp.r, nram_out_r,
+                       sizeof(DT) * large_radix, NRAM2NRAM,
                        sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
                        para_batch - 1);
 
-              __memcpy(nram_transpose_temp.i + compute_id * large_radix * 2,
-                       nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
-                       sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
-                       para_batch - 1);
-
-              __bang_transpose(nram_para_store.r, nram_transpose_temp.r,
-                               para_batch * 2, large_radix);
-            } else {
-              __bang_transpose(nram_para_store.r, nram_out_r, para_batch,
-                               large_radix);
-              __bang_transpose(nram_para_store.i, nram_out_i, para_batch,
-                               large_radix);
-            }
-
-            continue;
-          }
-
-          FFT_SWAP_PTR(nram_out_r, nram_in_r);
-          FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-          TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
-                                 small_section_num, para_batch, radix, DT)
-
-          DT *nram_tw = _nram_tw;
-          value_mul = 8;
-
-          for (; small_stage_count > 1; small_stage_count--) {
-            FFT_SWAP_PTR(nram_out_r, nram_in_r);
-            FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-            // // update parameter
-            radix = small_factors[value_mul++];
-            small_section_num = small_factors[value_mul++];
-            small_butterfly_num = small_factors[value_mul++];
-            small_in_stride = small_factors[value_mul++];
-
-            if (ld_dft_radix != radix) {
-              ld_dft_radix = radix;
-              for (int entry = 0;; entry++) {
-                if (dft_table[entry].radix == ld_dft_radix) {
-                  align_K = K_num * ((radix + K_num - 1) / K_num);
-                  __memcpy_async(
-                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                  __sync_move();
-                  break;
-                }
-
-                if (dft_table[entry].radix == -1) {
-                  break;
-                }
-              }
-            }
-
-            computeGenericButterflyOtherstagesMat(
-                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-                para_batch, small_in_stride, dir, radix);
-
-            nram_tw += small_butterfly_num * (radix - 1) * 2;
-          }  // for (stage_count)
-
-          // last stage
-          {
-            FFT_SWAP_PTR(nram_out_r, nram_in_r);
-            FFT_SWAP_PTR(nram_out_i, nram_in_i);
-
-            // update parameter
-            radix = small_factors[value_mul++];
-            small_section_num = small_factors[value_mul++];
-            small_butterfly_num = small_factors[value_mul++];
-            small_in_stride = small_factors[value_mul];
-
-            if (ld_dft_radix != radix) {
-              ld_dft_radix = radix;
-              for (int entry = 0;; entry++) {
-                if (dft_table[entry].radix == ld_dft_radix) {
-                  align_K = K_num * ((radix + K_num - 1) / K_num);
-                  __memcpy_async(
-                      nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
-                      sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
-                  __sync_move();
-                  break;
-                }
-
-                if (dft_table[entry].radix == -1) {
-                  break;
-                }
-              }
-            }
-
-            computeGenericButterflyLaststageMat(
-                nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
-                nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
-                para_batch, small_in_stride, dir, radix);
-
-            if (last_stage) {
-              // [2, para_batch, large_radix] -> [large_radix, para_batch, 2]
-              __memcpy(nram_transpose_temp.r + compute_id * large_radix * 2,
-                       nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
-                       sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
-                       para_batch - 1);
-
-              __memcpy(nram_transpose_temp.i + compute_id * large_radix * 2,
-                       nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
+              __memcpy(nram_transpose_temp.i, nram_out_i,
+                       sizeof(DT) * large_radix, NRAM2NRAM,
                        sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
                        para_batch - 1);
 
@@ -2082,6 +1960,108 @@ __mlu_func__ void computeLargeButterflyOtherstagesColumn(
                                large_radix);
               __bang_transpose(nram_para_store.i, nram_out_i, para_batch,
                                large_radix);
+            }
+
+          } else {
+            FFT_SWAP_PTR(nram_out_r, nram_in_r);
+            FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+            TRANSPOSE_XYZ2YXZ_PAIR(nram_out_r, nram_out_i, nram_in_r, nram_in_i,
+                                   small_section_num, para_batch, radix, DT)
+
+            DT *nram_tw = _nram_tw;
+            value_mul = 8;
+
+            for (; small_stage_count > 1; small_stage_count--) {
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+              // // update parameter
+              radix = small_factors[value_mul++];
+              small_section_num = small_factors[value_mul++];
+              small_butterfly_num = small_factors[value_mul++];
+              small_in_stride = small_factors[value_mul++];
+
+              if (ld_dft_radix != radix) {
+                ld_dft_radix = radix;
+                for (int entry = 0;; entry++) {
+                  if (dft_table[entry].radix == ld_dft_radix) {
+                    align_K = K_num * ((radix + K_num - 1) / K_num);
+                    __memcpy_async(
+                        nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                        sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                    __sync_move();
+                    break;
+                  }
+
+                  if (dft_table[entry].radix == -1) {
+                    break;
+                  }
+                }
+              }
+
+              computeGenericButterflyOtherstagesMat(
+                  nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                  nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                  para_batch, small_in_stride, dir, radix);
+
+              nram_tw += small_butterfly_num * (radix - 1) * 2;
+            }  // for (stage_count)
+
+            // last stage
+            {
+              FFT_SWAP_PTR(nram_out_r, nram_in_r);
+              FFT_SWAP_PTR(nram_out_i, nram_in_i);
+
+              // update parameter
+              radix = small_factors[value_mul++];
+              small_section_num = small_factors[value_mul++];
+              small_butterfly_num = small_factors[value_mul++];
+              small_in_stride = small_factors[value_mul];
+
+              if (ld_dft_radix != radix) {
+                ld_dft_radix = radix;
+                for (int entry = 0;; entry++) {
+                  if (dft_table[entry].radix == ld_dft_radix) {
+                    align_K = K_num * ((radix + K_num - 1) / K_num);
+                    __memcpy_async(
+                        nram_dftmtx, &dft_matrix[dft_table[entry].offset * 2],
+                        sizeof(DT) * 2 * ld_dft_radix * align_K, SRAM2NRAM);
+                    __sync_move();
+                    break;
+                  }
+
+                  if (dft_table[entry].radix == -1) {
+                    break;
+                  }
+                }
+              }
+
+              computeGenericButterflyLaststageMat(
+                  nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch,
+                  nram_dftmtx, nram_tw, small_section_num, small_butterfly_num,
+                  para_batch, small_in_stride, dir, radix);
+
+              if (last_stage) {
+                // [2, para_batch, large_radix] -> [large_radix, para_batch, 2]
+                __memcpy(nram_transpose_temp.r, nram_out_r,
+                         sizeof(DT) * large_radix, NRAM2NRAM,
+                         sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
+                         para_batch - 1);
+
+                __memcpy(nram_transpose_temp.i, nram_out_i,
+                         sizeof(DT) * large_radix, NRAM2NRAM,
+                         sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,
+                         para_batch - 1);
+
+                __bang_transpose(nram_para_store.r, nram_transpose_temp.r,
+                                 para_batch * 2, large_radix);
+              } else {
+                __bang_transpose(nram_para_store.r, nram_out_r, para_batch,
+                                 large_radix);
+                __bang_transpose(nram_para_store.i, nram_out_i, para_batch,
+                                 large_radix);
+              }
             }
           }
         }
@@ -2098,9 +2078,10 @@ template <typename DT>
 __mlu_func__ void computeLargeButterflyLaststageColumn(
     DT *output, DT *input, const int large_radix, const DT *cur_large_twiddles,
     const DT *small_twiddles, const int small_twiddles_size,
-    const DT *dft_matrix, int large_section_num, int large_butterfly_num,
-    int large_in_stride, void *nram_buf, const int *small_factors, int nfft,
-    int dir, int para_batch, int nb, const int load_once_twiddles) {
+    const DT *dft_matrix, const int large_section_num,
+    const int large_butterfly_num, const int large_in_stride, void *nram_buf,
+    const int *small_factors, const int nfft, const int dir,
+    const int para_batch, const int nb, const int load_once_twiddles) {
   computeLargeButterflyOtherstagesColumn(
       output, input, large_radix, cur_large_twiddles, small_twiddles,
       small_twiddles_size, dft_matrix, large_section_num, large_butterfly_num,
