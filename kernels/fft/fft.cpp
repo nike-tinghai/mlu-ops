@@ -1049,12 +1049,26 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
       }
     } else {
       // column major
-      for (int cur_r = 64; cur_r > 1; cur_r--) {
+      switch (_n)
+      {
+      case 2048:
+        if (n % 16 == 0) {
+          r = 16;
+        } else if ((n % 8) == 0) {
+          r = 8;
+        }
+        break;
+      
+      default:
+        for (int cur_r = 64; cur_r > 1; cur_r--) {
         if (n % cur_r == 0) {
           r = cur_r;
           break;
         }
       }
+        break;
+      }
+      
     }
     n /= r;
     switch (factor_type) {
