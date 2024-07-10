@@ -302,7 +302,7 @@ kernelFFTStockham(cnrtDim3_t k_dim, cnrtFunctionType_t k_type,
 
 mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
                                               int *facbuf, int stage,
-                                              const int large_radix);
+                                              const int large_radix, const int is_row_major);
 
 mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
                                              const int _n, int *facbuf,
@@ -365,10 +365,10 @@ mluOpStatus_t MLUOP_WIN_API kernelC2CFFTDFTMatrix(
 
 mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
                                              int &large_radix, int *facbuf,
-                                             int large_stage_id, int _n);
+                                             int large_stage_id, int _n, const int is_row_major);
 mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
                                                    int *facbuf, int stage,
-                                                   int &parallel_num_lb);
+                                                   int &parallel_num_lb, const int is_row_major);
 
 mluOpStatus_t MLUOP_WIN_API kernelFFTConjMerge(cnrtDim3_t k_dim,
                                                cnrtFunctionType_t k_type,

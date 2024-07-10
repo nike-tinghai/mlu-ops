@@ -567,12 +567,15 @@ mluOpStatus_t setIRFFT1dReserveArea(mluOpHandle_t handle,
         (int *)((uint8_t *)fft_plan->reservespace_addr + reservespace_offset);
     reservespace_offset += factors_size;
 
-    CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.factors, fft_plan->factors,
-                          FFT_MAXFACTORS * sizeof(int), cnrtMemcpyHostToDev));
-    CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
-                          twiddles_size, cnrtMemcpyHostToDev));
-    CNRT_CHECK(cnrtMemcpy(fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
-                          DFT_TABLE_SIZE, cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.factors, fft_plan->factors,
+                          FFT_MAXFACTORS * sizeof(int), handle->queue,cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
+                          twiddles_size,handle->queue, cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
+                          DFT_TABLE_SIZE,handle->queue, cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtFreeHost(fft_plan->factors));
+    CNRT_CHECK(cnrtFreeHost(fft_plan->twiddles));
+    CNRT_CHECK(cnrtFreeHost(fft_plan->dft_matrix));
   }
   return status;
 }
@@ -781,7 +784,8 @@ static mluOpStatus_t makeIRFFT1dContiguousInput(mluOpHandle_t handle,
     INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
     status = mluOpContiguous(handle, input_desc, input,
-                             fft_plan->matmul_addrs.input_contiguous_addr);
+                            (fft_plan->prime) ?  fft_plan->matmul_addrs.input_contiguous_addr
+                            :fft_plan->mlu_addrs.input);
     INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
 
     status = mluOpDestroyTensorDescriptor(input_desc);

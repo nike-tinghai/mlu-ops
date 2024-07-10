@@ -352,10 +352,11 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
   _small_stage_count = small_factors[0];
   tw_offset = small_factors[1];
 
-  const int max_para_ldst_num = 2;
+  const int max_para_ldst_num = small_factors[3];
 
   int nram_buf_offset = 0;
   DT *nram_in_r = (DT *)nram_buf + nram_buf_offset;
+  DT *nram_out_tmp = (DT *)nram_buf + nram_buf_offset;
   nram_buf_offset += large_radix * max_para_ldst_num;
 
   DT *nram_in_i = (DT *)nram_buf + nram_buf_offset;
@@ -365,9 +366,6 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
   nram_buf_offset += large_radix * max_para_ldst_num;
 
   DT *nram_out_i = (DT *)nram_buf + nram_buf_offset;
-  nram_buf_offset += large_radix * max_para_ldst_num;
-
-  DT *nram_out_tmp = (DT *)nram_buf + nram_buf_offset;
   nram_buf_offset += large_radix * max_para_ldst_num;
 
   // parallel load/store space
@@ -429,10 +427,6 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
   FFT_CPX_T<DT> nram_transpose_temp;
   // temp out-space before transpose
 
-  nram_transpose_temp = {
-      (DT *)nram_in_r,
-      (DT *)nram_in_r + large_radix * ((int)last_stage) +
-          large_radix * (1 - (int)last_stage) * max_para_ldst_num};
 
   int Fin_stride = 0, Fout_stride = 0;
   int sec_count;
@@ -658,7 +652,12 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
                                para_ldst_num);
             }
             if (last_stage) {
+  nram_transpose_temp = {
+      (DT *)nram_in_r,
+      (DT *)nram_in_r + large_radix * ((int)last_stage) +
+          large_radix * (1 - (int)last_stage) * max_para_ldst_num};
               __sync_compute();
+              __sync_move();
               __memcpy_async(nram_transpose_temp.r,
                              nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
                              sizeof(DT) * large_radix * 2,
@@ -668,6 +667,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
                              nram_out_i, sizeof(DT) * large_radix, NRAM2NRAM,
                              sizeof(DT) * large_radix * 2,
                              sizeof(DT) * large_radix, para_ldst_num - 1);
+              __sync_move();
               __sync_compute();
               __bang_transpose(nram_para_store.r, nram_transpose_temp.r,
                                para_ldst_num * 2, large_radix);
@@ -802,6 +802,10 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
             }
 
             if (last_stage) {
+  nram_transpose_temp = {
+      (DT *)nram_in_r,
+      (DT *)nram_in_r + large_radix * ((int)last_stage) +
+          large_radix * (1 - (int)last_stage) * max_para_ldst_num};
               __memcpy(nram_transpose_temp.r,
                        nram_out_r, sizeof(DT) * large_radix, NRAM2NRAM,
                        sizeof(DT) * large_radix * 2, sizeof(DT) * large_radix,

@@ -326,7 +326,7 @@ __mlu_func__ void computeLargeButterflyFirststageBatchPingpong(
   nram_buf_offset += large_radix * max_para_ldst_num * 2;
 
   DT *_nram_tw = (DT *)nram_buf + nram_buf_offset;
-  nram_buf_offset += large_radix * 2;
+  nram_buf_offset +=  small_twiddles_size;
 
   int ld_dft_radix[2] = {-1, -1};
   const int max_radix = 64;
@@ -999,7 +999,7 @@ __mlu_func__ void computeLargeButterflyOtherstagesBatchPingpong(
   nram_buf_offset += large_radix * max_para_ldst_num * 2;  // complex
 
   DT *_nram_tw = (DT *)nram_buf + nram_buf_offset;
-  nram_buf_offset += large_radix * 2;  // complex
+  nram_buf_offset +=  small_twiddles_size;  // complex
 
   int ld_dft_radix = -1;
   const int max_radix = 64;

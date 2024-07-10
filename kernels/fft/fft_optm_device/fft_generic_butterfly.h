@@ -436,7 +436,7 @@ __mlu_func__ void computeGenericButterflyFirststageMatR2C(
   __bang_reshape_filter(in_align2, in_align, align_N, 1, 1, align_K);
   __sync_compute();
 
-  __memcpy(in_wram, in_align2, align_N * align_K * sizeof(DT), NRAM2WRAM);
+  __memcpy_async(in_wram, in_align2, align_N * align_K * sizeof(DT), NRAM2WRAM);
   __sync_move();
 
   __bang_matmul((float *)out.r, (float *)dftmtx.r, (float *)in_wram, align_M,
