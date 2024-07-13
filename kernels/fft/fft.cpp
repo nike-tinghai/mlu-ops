@@ -907,37 +907,20 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
           }
           break;
 
-          // case 4096:
-          //   4096;
-          //   break;
-
         case 6000:
-          //if (factor_type == CNFFT_HALF2COMPLEX_HALF ||
-          //    factor_type == CNFFT_FLOAT2COMPLEX_FLOAT) {
-            if (n % 300 == 0) {
-              r = 300;
-            } else if ((n % 20) == 0) {
-              r = 20;
-            }
-
-         // } else 
-         // {
-         //   r = 6000;
-         // }
+          if (n % 300 == 0) {
+            r = 300;
+          } else if ((n % 20) == 0) {
+            r = 20;
+          }
           break;
 
         case 7000:
-          //if (factor_type == CNFFT_HALF2COMPLEX_HALF ||
-          //    factor_type == CNFFT_FLOAT2COMPLEX_FLOAT) {
-            if (n % 280 == 0) {
-              r = 280;
-            } else if ((n % 25) == 0) {
-              r = 25;
-            }
-
-          //} else {
-          //  r = 7000;
-          //}
+          if (n % 280 == 0) {
+            r = 280;
+          } else if ((n % 25) == 0) {
+            r = 25;
+          }
           break;
 
         case 8000:
@@ -1049,8 +1032,11 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
       }
     } else {
       // column major
+      // Larger base factorization (e.g., 64) is faster but less accurate.
+      // Smaller base factorization (e.g., 16, 8) is slower but more accurate.
       switch (_n)
       {
+      // For the case where _n is 2048, use smaller bases for factorization.
       case 2048:
         if (n % 16 == 0) {
           r = 16;
@@ -1060,6 +1046,7 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
         break;
       
       default:
+        // For other cases, use larger bases for factorization.
         for (int cur_r = 64; cur_r > 1; cur_r--) {
         if (n % cur_r == 0) {
           r = cur_r;
