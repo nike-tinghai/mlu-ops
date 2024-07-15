@@ -24,8 +24,7 @@
 #include "kernels/fft/fft_optm_device/fft_c2c_stockham_nram.h"
 
 extern __nram__ char
-    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4];
-extern   __nram__ int nram_factors[FFT_MAXFACTORS];
+    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
 __mlu_shared__ char sram_buffer[MAX_SRAM_SIZE];
 extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
@@ -40,7 +39,8 @@ __mlu_func__ void computeMutiStageOnchip(DT *input, DT *output, int *factors,
   int repeat_num = total_num / taskDim;
   int remain_num = total_num % taskDim;
 
-  char *nram_buf = nram_buffer;
+  char *nram_buf = nram_buffer + FFT_MAXFACTORS * sizeof(int);
+  int *nram_factors = (int *)nram_buffer;
 
   int t_len = repeat_num + ((remain_num > 0 && taskId < remain_num) ? 1 : 0);
   int t_start = taskId - remain_num <= 0 ? taskId * (repeat_num + 1)
@@ -223,7 +223,8 @@ __mlu_func__ void computeMutiStageOnchipColumn(DT *input, DT *output,
   int repeat_num = total_num / taskDim;
   int remain_num = total_num % taskDim;
 
-  char *nram_buf = nram_buffer;
+  char *nram_buf = nram_buffer + FFT_MAXFACTORS * sizeof(int);
+  int *nram_factors = (int *)nram_buffer;
 
   int t_len = repeat_num + ((remain_num > 0 && taskId < remain_num) ? 1 : 0);
   int t_start = taskId - remain_num <= 0 ? taskId * (repeat_num + 1)

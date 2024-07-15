@@ -1825,7 +1825,6 @@ mluOpStatus_t execIRFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
                                             fft_plan, FFT_IFFT);
 
       INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
-
       status = kernelIRFFT2dButterflyRow(k_dim, k_type, handle->queue, fft_plan,
                                          FFT_IFFT);
       INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);
@@ -1840,7 +1839,6 @@ mluOpStatus_t execIRFFT2d(mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan,
     fft_plan->mlu_addrs.output =
         (void *)((uint64_t)(fft_plan->mlu_addrs.output) -
                  fft_plan->batch * odist);
-
     status = makeIRFFT2dContiguousOutput(handle, fft_plan, output,
                                          fft_plan->mlu_addrs.output);
     INTERNAL_CHECK(api, status == MLUOP_STATUS_SUCCESS);

@@ -1093,7 +1093,8 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
     status =
         fftFactor(r, facbuf, small_factors_offset, factor_type, large_count);
     INTERNAL_CHECK("[fftTwoStepFactor]", status == MLUOP_STATUS_SUCCESS);
-    setMaxParallelNum(fft_plan, cur_facbuf, stage_num, r, is_row_major);
+    status =setMaxParallelNum(fft_plan, cur_facbuf, stage_num, r, is_row_major);
+    INTERNAL_CHECK("[fftTwoStepFactor]", status == MLUOP_STATUS_SUCCESS);
 
     out_stride *= r;
     large_count++;
@@ -1250,8 +1251,8 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = section_num * 2;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          align_N = para_num;
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
+          // align_N = para_num;
+          align_N = 64 * ((para_num + 64 - 1) / 64);
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
               2 * TYPE_SIZE;
@@ -1261,8 +1262,8 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = butterfly_num * section_num;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
-          align_N = para_num;
+          align_N = 64 * ((para_num + 64 - 1) / 64);
+          //align_N = para_num;
 
           space_need_matmul_tmp = 0;
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
@@ -1338,8 +1339,8 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = section_num * 2;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          align_N = para_num;
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
+          //align_N = para_num;
+          align_N = 64 * ((para_num + 64 - 1) / 64);
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
               2 * TYPE_SIZE;
@@ -1349,8 +1350,8 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = butterfly_num * section_num;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
-          align_N = para_num;
+          align_N = 64 * ((para_num + 64 - 1) / 64);
+          //align_N = para_num;
 
           space_need_matmul_tmp = 0;
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
@@ -1395,14 +1396,14 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
   const int max_radix = 64;
   size_t TYPE_SIZE = 0;
   int max_parallel_num = 0;
-  int nram_space_need = 0;
+  size_t nram_space_need = 0;
   int nram_space_need_tw = 0;
   int nram_space_need_dftmtx = (stage == 1)
                                    ? max_radix * max_radix * 2 * 2
                                    : max_radix * max_radix * 2;  // complex
   // int nram_space_need_dftmtx_align = 0;
-  int space_need_matmul = 0;
-  int space_need_matmul_tmp = 0;
+  size_t space_need_matmul = 0;
+  size_t  space_need_matmul_tmp = 0;
   int small_stage_num = facbuf[0];
   int radix = 0;
   int section_num = 0;
@@ -1643,7 +1644,7 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
 
       // nram_space_need += space_need_matmul;
       nram_space_need_tw = large_radix * 2 * TYPE_SIZE;  // complex
-      const size_t nram_space_remain =
+      const  int nram_space_remain =
           (nram_space_size - nram_space_need_tw - nram_space_need_dftmtx);
       max_parallel_num =
           nram_space_remain / (nram_space_need + space_need_matmul);
@@ -1825,18 +1826,20 @@ mluOpStatus_t MLUOP_WIN_API mluOpAllocateRFFT2D(
   size_t workspace_size = 0, reservespace_size = 0;
 
   mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
-  size_t out_c_dtype_size = mluOpDataTypeBytes(out_c_dtype);
+  mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
+  size_t complex_dtype_size = (mluOpDataTypeBytes(out_c_dtype)>mluOpDataTypeBytes(in_c_dtype))?
+  mluOpDataTypeBytes(out_c_dtype):mluOpDataTypeBytes(in_c_dtype);
 
   int batch = fft_plan->batch;
-  size_t buffer_size = batch * out_c_dtype_size * _n0 * _n1;
+  size_t buffer_size = batch * complex_dtype_size  * _n0 * _n1;
 
-  size_t twiddles_size = out_c_dtype_size * _n0;
-  size_t twiddles_size_2d = out_c_dtype_size * _n1;
+  size_t twiddles_size =complex_dtype_size  * _n0;
+  size_t twiddles_size_2d = complex_dtype_size   * _n1;
 
   if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
-    reservespace_size = out_c_dtype_size * _n0 * _n0 * 2 +
-                        out_c_dtype_size * _n1 * _n1 * 2; /* DFT matrix */
-    workspace_size = out_c_dtype_size * _n1 * _n0 * batch * 6;
+    reservespace_size = complex_dtype_size    * _n0 * _n0 * 2 +
+                        complex_dtype_size     * _n1 * _n1 * 2; /* DFT matrix */
+    workspace_size = complex_dtype_size      * _n1 * _n0 * batch * 6;
   } else if (fft_plan->fft_strategy == CNFFT_FUNC_TWO_LEVEL_STOCKHAM) {
     reservespace_size = sizeof(int) * (FFT_MAXFACTORS) /* factors */
                         + sizeof(int) * (FFT_MAXFACTORS) + twiddles_size * 2 +

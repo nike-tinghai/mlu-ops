@@ -24,8 +24,7 @@
 #include "kernels/fft/fft_optm_device/fft_c2r_stockham_nram.h"
 
 extern __nram__ char
-    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4];
-extern   __nram__ int nram_factors[FFT_MAXFACTORS];
+    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
 __mlu_shared__ char sram_buffer[MAX_SRAM_SIZE];
 extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
@@ -40,7 +39,8 @@ __mlu_func__ void computeMutiStageOnchipC2R(DT *input, DT *output, int *factors,
   int repeat_num = total_num / taskDim;
   int remain_num = total_num % taskDim;
 
-  char *nram_buf = nram_buffer;
+  char *nram_buf = nram_buffer + FFT_MAXFACTORS * sizeof(int);
+  int *nram_factors = (int *)nram_buffer;
 
   // Each core needs to process "t_len" blocks, "remain_num" is evenly
   // assigned to the previous "remian_num" cores.
