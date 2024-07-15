@@ -28,8 +28,9 @@ extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 template <typename DT>
 __mlu_func__ void computeGenericButterflyFirststageMat_v1(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
-    DT *nram_scratch, DT *nram_dftmtx, const int section_num, const int butterfly_num,
-    const int in_stride, const int dir, const int radix) {
+    DT *nram_scratch, DT *nram_dftmtx, const int section_num,
+    const int butterfly_num, const int in_stride, const int dir,
+    const int radix) {
   // outplace(nram)
 
   // origin: M = radix, K = radix, N =butterfly_num
@@ -136,8 +137,9 @@ __mlu_func__ void computeGenericButterflyFirststageMat_v1(
 template <typename DT>
 __mlu_func__ void computeGenericButterflyFirststageMat(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
-    DT *nram_scratch, DT *nram_dftmtx, const int section_num, const int butterfly_num,
-    const int in_stride, const int dir, const int radix) {
+    DT *nram_scratch, DT *nram_dftmtx, const int section_num,
+    const int butterfly_num, const int in_stride, const int dir,
+    const int radix) {
   // outplace(nram)
 
 #define in_trans_r (nram_out_r)
@@ -207,8 +209,8 @@ template <typename DT>
 __mlu_func__ void computeGenericButterflyOtherstagesMat(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
     DT *nram_scratch, DT *nram_dftmtx, DT *nram_tw, const int section_num,
-    const int butterfly_num, const int para_large_butterfly, const int in_stride, const int dir,
-    const int radix) {
+    const int butterfly_num, const int para_large_butterfly,
+    const int in_stride, const int dir, const int radix) {
   const int para_num = butterfly_num * section_num * para_large_butterfly;
   const int align_M = radix;  // no align
   const int K_num = 64 / sizeof(DT);
@@ -366,8 +368,8 @@ template <typename DT>
 __mlu_func__ void computeGenericButterflyLaststageMat(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
     DT *nram_scratch, DT *nram_dftmtx, DT *nram_tw, const int section_num,
-    const int butterfly_num, const int para_large_butterfly, const int in_stride, const int dir,
-    const int radix) {
+    const int butterfly_num, const int para_large_butterfly,
+    const int in_stride, const int dir, const int radix) {
   computeGenericButterflyOtherstagesMat(
       nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch, nram_dftmtx,
       nram_tw, section_num, butterfly_num, para_large_butterfly, in_stride, dir,
@@ -379,8 +381,8 @@ __mlu_func__ void computeGenericButterflyLaststageMat(
 template <typename DT>
 __mlu_func__ void computeGenericButterflyFirststageMatR2C(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_scratch,
-    DT *nram_dftmtx, const int section_num, const int butterfly_num, const int in_stride,
-    const int radix) {
+    DT *nram_dftmtx, const int section_num, const int butterfly_num,
+    const int in_stride, const int radix) {
   // outplace(nram)
 
   const int para_num = butterfly_num;
@@ -461,7 +463,8 @@ template <typename DT>
 __mlu_func__ void computeGenericButterflyOtherstagesMatR2C(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
     DT *nram_scratch, DT *nram_dftmtx, DT *nram_tw, const int section_num,
-    const int butterfly_num, const int para_large_butterfly, const int in_stride, const int radix) {
+    const int butterfly_num, const int para_large_butterfly,
+    const int in_stride, const int radix) {
   const int compute_butterfly_num = ((butterfly_num + 2) >> 1);
   const int para_num =
       compute_butterfly_num * section_num * para_large_butterfly;
@@ -664,7 +667,8 @@ template <typename DT>
 __mlu_func__ void computeGenericButterflyLaststageMatR2C(
     DT *nram_out_r, DT *nram_out_i, DT *nram_in_r, DT *nram_in_i,
     DT *nram_scratch, DT *nram_dftmtx, DT *nram_tw, const int section_num,
-    const int butterfly_num, const int para_large_butterfly, const int in_stride, const int radix) {
+    const int butterfly_num, const int para_large_butterfly,
+    const int in_stride, const int radix) {
   computeGenericButterflyOtherstagesMatR2C(
       nram_out_r, nram_out_i, nram_in_r, nram_in_i, nram_scratch, nram_dftmtx,
       nram_tw, section_num, butterfly_num, para_large_butterfly, in_stride,

@@ -74,8 +74,10 @@ mluOpStatus_t MLUOP_WIN_API mluOpCreateFFTPlan(mluOpFFTPlan_t *fft_plan) {
     LOG(ERROR) << "[mluOpCreateFFTPlan]: alloc failed";
     return MLUOP_STATUS_ALLOC_FAILED;
   }
-  CNRT_CHECK(cnrtHostMalloc((void**)&(ts->factors), FFT_MAXFACTORS*sizeof(int)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(ts->factors_2d), FFT_MAXFACTORS*sizeof(int)));
+  CNRT_CHECK(
+      cnrtHostMalloc((void **)&(ts->factors), FFT_MAXFACTORS * sizeof(int)));
+  CNRT_CHECK(
+      cnrtHostMalloc((void **)&(ts->factors_2d), FFT_MAXFACTORS * sizeof(int)));
   *fft_plan = ts;
   return MLUOP_STATUS_SUCCESS;
 }
@@ -149,8 +151,10 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateTwiddles(mluOpFFTPlan_t fft_plan,
                                                 int *factors, const int _nfft,
                                                 const int dir) {
   DT *twiddles = NULL;
-  CNRT_CHECK(cnrtHostMalloc((void**)&twiddles, (_nfft * 2 * 2)*sizeof(DT))); // complex *2(large+small)
-  
+  CNRT_CHECK(
+      cnrtHostMalloc((void **)&twiddles,
+                     (_nfft * 2 * 2) * sizeof(DT)));  // complex *2(large+small)
+
   _twiddles = twiddles;
   int stage_count = factors[0];
   int cur_large_radix, cur_small_radix, section_num, butterfly_num,
@@ -205,8 +209,10 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateR2CTwiddles(void *&_twiddles,
                                                    const int _nfft,
                                                    const int dir) {
   DT *twiddles = NULL;
-  CNRT_CHECK(cnrtHostMalloc((void**)&twiddles, (_nfft * 2 * 2)*sizeof(DT))); // complex *2(large+small)
-  
+  CNRT_CHECK(
+      cnrtHostMalloc((void **)&twiddles,
+                     (_nfft * 2 * 2) * sizeof(DT)));  // complex *2(large+small)
+
   _twiddles = twiddles;
   int stage_count = factors[0];
   int cur_large_radix, cur_small_radix, section_num, butterfly_num,
@@ -274,8 +280,10 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateTwiddlesC2R(
     int *factors, const int _nfft, const int dir) {
   // twiddles = _twiddles;
   DT *twiddles = NULL;
-  CNRT_CHECK(cnrtHostMalloc((void**)&twiddles, (_nfft * 2 * 2)*sizeof(DT))); // complex *2(large+small)
-  
+  CNRT_CHECK(
+      cnrtHostMalloc((void **)&twiddles,
+                     (_nfft * 2 * 2) * sizeof(DT)));  // complex *2(large+small)
+
   _twiddles = twiddles;
   int stage_count = factors[0];
   int cur_large_radix, cur_small_radix, section_num, butterfly_num,
@@ -329,8 +337,10 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateTwiddlesColumn(
     int *factors, const int _nfft, const int dir) {
   // twiddles = _twiddles;
   DT *twiddles = NULL;
-  CNRT_CHECK(cnrtHostMalloc((void**)&twiddles, (_nfft * 2 * 2)*sizeof(DT))); // complex *2(large+small)
-  
+  CNRT_CHECK(
+      cnrtHostMalloc((void **)&twiddles,
+                     (_nfft * 2 * 2) * sizeof(DT)));  // complex *2(large+small)
+
   _twiddles = twiddles;
   int stage_count = factors[0];
   int cur_large_radix, cur_small_radix, section_num, butterfly_num,
@@ -465,8 +475,8 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrix(void *&_dft_matrix,
   const std::string api = "[fftGenerateDftMatrix]";
 
   const int K_num = 64 / sizeof(DT);
-  DT *dft_matrix = NULL ;
-  CNRT_CHECK(cnrtHostMalloc((void**)&dft_matrix , DFT_TABLE_SIZE*sizeof(DT)));
+  DT *dft_matrix = NULL;
+  CNRT_CHECK(cnrtHostMalloc((void **)&dft_matrix, DFT_TABLE_SIZE * sizeof(DT)));
   dft_table_entry *dft_matrix_table = (dft_table_entry *)dft_matrix;
   _dft_matrix = dft_matrix;
   int align_K = 0;
@@ -561,7 +571,8 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrix(void *&_dft_matrix,
 
 mluOpStatus_t MLUOP_WIN_API fftFactor(const int _n, int *facbuf,
                                       int &small_factors_offset,
-                                      const int factor_type, const int large_count) {
+                                      const int factor_type,
+                                      const int large_count) {
   int n = _n;
   int r, in_stride, section_num, stage_num = 0, out_stride = 1;
 
@@ -609,7 +620,6 @@ mluOpStatus_t MLUOP_WIN_API fftFactor(const int _n, int *facbuf,
         }
         break;
 
-
       case 275:
         if (n % 25 == 0) {
           r = 25;
@@ -626,7 +636,7 @@ mluOpStatus_t MLUOP_WIN_API fftFactor(const int _n, int *facbuf,
         }
         break;
       case 256:
-        if (n % 32== 0) {
+        if (n % 32 == 0) {
           r = 32;
         } else if ((n % 8) == 0) {
           r = 8;
@@ -697,18 +707,18 @@ mluOpStatus_t MLUOP_WIN_API fftFactor(const int _n, int *facbuf,
         }
         break;
       case 512:
-        if (n % 64== 0) {
+        if (n % 64 == 0) {
           r = 64;
         } else if ((n % 8) == 0) {
           r = 8;
         }
         break;
 
-        case 1024:
-          if (n % 32 == 0) {
-            r = 32;
-          }
-          break;
+      case 1024:
+        if (n % 32 == 0) {
+          r = 32;
+        }
+        break;
       case 2048:
         if (n % 16 == 0) {
           r = 16;
@@ -1026,7 +1036,8 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
             r = n;
           } else {
             int *cur_facbuf = &facbuf[small_factors_offset];
-            searchLargeRadix(fft_plan, r, cur_facbuf, stage_num + 1, n , is_row_major);
+            searchLargeRadix(fft_plan, r, cur_facbuf, stage_num + 1, n,
+                             is_row_major);
           }
           break;
       }
@@ -1034,28 +1045,26 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
       // column major
       // Larger base factorization (e.g., 64) is faster but less accurate.
       // Smaller base factorization (e.g., 16, 8) is slower but more accurate.
-      switch (_n)
-      {
-      // For the case where _n is 2048, use smaller bases for factorization.
-      case 2048:
-        if (n % 16 == 0) {
-          r = 16;
-        } else if ((n % 8) == 0) {
-          r = 8;
-        }
-        break;
-      
-      default:
-        // For other cases, use larger bases for factorization.
-        for (int cur_r = 64; cur_r > 1; cur_r--) {
-        if (n % cur_r == 0) {
-          r = cur_r;
+      switch (_n) {
+        // For the case where _n is 2048, use smaller bases for factorization.
+        case 2048:
+          if (n % 16 == 0) {
+            r = 16;
+          } else if ((n % 8) == 0) {
+            r = 8;
+          }
           break;
-        }
+
+        default:
+          // For other cases, use larger bases for factorization.
+          for (int cur_r = 64; cur_r > 1; cur_r--) {
+            if (n % cur_r == 0) {
+              r = cur_r;
+              break;
+            }
+          }
+          break;
       }
-        break;
-      }
-      
     }
     n /= r;
     switch (factor_type) {
@@ -1093,7 +1102,8 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
     status =
         fftFactor(r, facbuf, small_factors_offset, factor_type, large_count);
     INTERNAL_CHECK("[fftTwoStepFactor]", status == MLUOP_STATUS_SUCCESS);
-    status =setMaxParallelNum(fft_plan, cur_facbuf, stage_num, r, is_row_major);
+    status =
+        setMaxParallelNum(fft_plan, cur_facbuf, stage_num, r, is_row_major);
     INTERNAL_CHECK("[fftTwoStepFactor]", status == MLUOP_STATUS_SUCCESS);
 
     out_stride *= r;
@@ -1115,7 +1125,9 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
 
 mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
                                              int &large_radix, int *facbuf,
-                                             const int large_stage_id, const int _n, const int is_row_major) {
+                                             const int large_stage_id,
+                                             const int _n,
+                                             const int is_row_major) {
   large_radix = 1;
 
   int cur_stage_num = 0, cur_large_radix = 1;
@@ -1173,7 +1185,8 @@ mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
 // low bound
 mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
                                                    int *facbuf, const int stage,
-                                                   int &parallel_num_lb, const int is_row_major) {
+                                                   int &parallel_num_lb,
+                                                   const int is_row_major) {
   const size_t nram_space_size =
       (MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024 - FFT_MAXFACTORS * 4);
   size_t workspace_size = 0;
@@ -1263,7 +1276,7 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
           align_N = 64 * ((para_num + 64 - 1) / 64);
-          //align_N = para_num;
+          // align_N = para_num;
 
           space_need_matmul_tmp = 0;
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
@@ -1322,7 +1335,7 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
         // nram_para_load_tw
         nram_space_need += _n * 2 * TYPE_SIZE;  // complex
         // // _nram_tw
-        nram_space_need += (!is_row_major)? (_n * 2 * TYPE_SIZE): 0;
+        nram_space_need += (!is_row_major) ? (_n * 2 * TYPE_SIZE) : 0;
         // nram_space_need += _n * 2 * TYPE_SIZE;  // complex
       }
 
@@ -1339,7 +1352,7 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = section_num * 2;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          //align_N = para_num;
+          // align_N = para_num;
           align_N = 64 * ((para_num + 64 - 1) / 64);
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
@@ -1351,7 +1364,7 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
           align_N = 64 * ((para_num + 64 - 1) / 64);
-          //align_N = para_num;
+          // align_N = para_num;
 
           space_need_matmul_tmp = 0;
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
@@ -1386,7 +1399,8 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
 
 mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
                                               int *facbuf, const int stage,
-                                              const int large_radix, const int is_row_major) {
+                                              const int large_radix,
+                                              const int is_row_major) {
   const std::string make_plan_api = "[setMaxParallelNum]";
 
   const size_t nram_space_size =
@@ -1403,7 +1417,7 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
                                    : max_radix * max_radix * 2;  // complex
   // int nram_space_need_dftmtx_align = 0;
   size_t space_need_matmul = 0;
-  size_t  space_need_matmul_tmp = 0;
+  size_t space_need_matmul_tmp = 0;
   int small_stage_num = facbuf[0];
   int radix = 0;
   int section_num = 0;
@@ -1563,7 +1577,7 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
     case CNFFT_COMPLEX_FLOAT2FLOAT:
     case CNFFT_COMPLEX_HALF2COMPLEX_HALF:
     case CNFFT_COMPLEX_FLOAT2COMPLEX_FLOAT: {
-      //if(large_radix==6000|| large_radix==7000){
+      // if(large_radix==6000|| large_radix==7000){
       //  max_parallel_num = 1;
       //  break;
       //}
@@ -1595,7 +1609,7 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
         nram_space_need += large_radix * 2 * TYPE_SIZE;  // complex
         // // _nram_tw
         // nram_space_need += large_radix* 2 * TYPE_SIZE;  // complex
-        nram_space_need += (!is_row_major)? (large_radix * 2 * TYPE_SIZE): 0;
+        nram_space_need += (!is_row_major) ? (large_radix * 2 * TYPE_SIZE) : 0;
       }
 
       space_need_matmul = 0;
@@ -1644,7 +1658,7 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
 
       // nram_space_need += space_need_matmul;
       nram_space_need_tw = large_radix * 2 * TYPE_SIZE;  // complex
-      const  int nram_space_remain =
+      const int nram_space_remain =
           (nram_space_size - nram_space_need_tw - nram_space_need_dftmtx);
       max_parallel_num =
           nram_space_remain / (nram_space_need + space_need_matmul);
@@ -1827,19 +1841,21 @@ mluOpStatus_t MLUOP_WIN_API mluOpAllocateRFFT2D(
 
   mluOpDataType_t out_c_dtype = fft_plan->output_dtype;
   mluOpDataType_t in_c_dtype = fft_plan->input_dtype;
-  size_t complex_dtype_size = (mluOpDataTypeBytes(out_c_dtype)>mluOpDataTypeBytes(in_c_dtype))?
-  mluOpDataTypeBytes(out_c_dtype):mluOpDataTypeBytes(in_c_dtype);
+  size_t complex_dtype_size =
+      (mluOpDataTypeBytes(out_c_dtype) > mluOpDataTypeBytes(in_c_dtype))
+          ? mluOpDataTypeBytes(out_c_dtype)
+          : mluOpDataTypeBytes(in_c_dtype);
 
   int batch = fft_plan->batch;
-  size_t buffer_size = batch * complex_dtype_size  * _n0 * _n1;
+  size_t buffer_size = batch * complex_dtype_size * _n0 * _n1;
 
-  size_t twiddles_size =complex_dtype_size  * _n0;
-  size_t twiddles_size_2d = complex_dtype_size   * _n1;
+  size_t twiddles_size = complex_dtype_size * _n0;
+  size_t twiddles_size_2d = complex_dtype_size * _n1;
 
   if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
-    reservespace_size = complex_dtype_size    * _n0 * _n0 * 2 +
-                        complex_dtype_size     * _n1 * _n1 * 2; /* DFT matrix */
-    workspace_size = complex_dtype_size      * _n1 * _n0 * batch * 6;
+    reservespace_size = complex_dtype_size * _n0 * _n0 * 2 +
+                        complex_dtype_size * _n1 * _n1 * 2; /* DFT matrix */
+    workspace_size = complex_dtype_size * _n1 * _n0 * batch * 6;
   } else if (fft_plan->fft_strategy == CNFFT_FUNC_TWO_LEVEL_STOCKHAM) {
     reservespace_size = sizeof(int) * (FFT_MAXFACTORS) /* factors */
                         + sizeof(int) * (FFT_MAXFACTORS) + twiddles_size * 2 +
@@ -1865,8 +1881,9 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2C1D(
     mluOpTensorDescriptor_t input_desc, mluOpTensorDescriptor_t output_desc,
     const int rank, const int *n) {
   fft_plan->is_batch_contiguous =
-      (fft_plan->idist == 1 && fft_plan->odist == 1&&
-      fft_plan->inembed[0]==fft_plan->batch && fft_plan->onembed[0]==fft_plan->batch );
+      (fft_plan->idist == 1 && fft_plan->odist == 1 &&
+       fft_plan->inembed[0] == fft_plan->batch &&
+       fft_plan->onembed[0] == fft_plan->batch);
   mluOpAllocateC2C1D(handle, fft_plan, input_desc, output_desc, n[0]);
   int is_row_major = !fft_plan->is_batch_contiguous;
   fftTwoStepFactor(fft_plan, n[0], fft_plan->factors, is_row_major,
@@ -1991,10 +2008,14 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2C2D(
       case CNFFT_FLOAT2COMPLEX_FLOAT:
       case CNFFT_COMPLEX_FLOAT2FLOAT:
       case CNFFT_COMPLEX_FLOAT2COMPLEX_FLOAT:
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix ), n[1] * n[1] * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix_2d ), n[0] * n[0] * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->idft_matrix ), n[1] * n[1] * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->idft_matrix_2d ), n[0] * n[0] * 2*sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix),
+                                  n[1] * n[1] * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix_2d),
+                                  n[0] * n[0] * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->idft_matrix),
+                                  n[1] * n[1] * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->idft_matrix_2d),
+                                  n[0] * n[0] * 2 * sizeof(float)));
 
         fftGenerateDftMatrixKernelNoPad<float>((float *)fft_plan->dft_matrix,
                                                n[1], FFT_FORWARD);
@@ -2142,8 +2163,10 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanR2C2D(
   if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
     switch (fft_plan->fft_type) {
       case CNFFT_FLOAT2COMPLEX_FLOAT:
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix ), n[1] * (n[1] / 2 + 1) * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix_2d ), n[0] * n[0] * 2*sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix),
+                                  n[1] * (n[1] / 2 + 1) * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix_2d),
+                                  n[0] * n[0] * 2 * sizeof(float)));
 
         fftGenerateHalfDftMatrixKernelNoPad<float>(
             (float *)fft_plan->dft_matrix, n[1], FFT_FORWARD);
@@ -2151,8 +2174,10 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanR2C2D(
                                                n[0], FFT_FORWARD);
         break;
       case CNFFT_HALF2COMPLEX_HALF:
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix ), n[1] * (n[1] / 2 + 1) * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix_2d ), n[0] * n[0] * 2*sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix),
+                                  n[1] * (n[1] / 2 + 1) * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix_2d),
+                                  n[0] * n[0] * 2 * sizeof(float)));
 
         fftGenerateHalfDftMatrixKernelNoPad<float>(
             (float *)fft_plan->dft_matrix, n[1], FFT_FORWARD);
@@ -2234,8 +2259,10 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2R2D(
   if (fft_plan->fft_strategy == CNFFT_FUNC_MANY_DIST1_2D) {
     switch (fft_plan->fft_type) {
       case CNFFT_COMPLEX_FLOAT2FLOAT:
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix ), n[1] * (n[1] / 2 + 1) * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix_2d ), n[0] * n[0] * 2*sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix),
+                                  n[1] * (n[1] / 2 + 1) * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix_2d),
+                                  n[0] * n[0] * 2 * sizeof(float)));
 
         fftGenerateC2RDftMatrixKernelNoPad<float>((float *)fft_plan->dft_matrix,
                                                   n[1]);
@@ -2243,8 +2270,10 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2R2D(
                                                n[0], FFT_BACKWARD);
         break;
       case CNFFT_COMPLEX_HALF2HALF:
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix ), n[1] * (n[1] / 2 + 1) * 2*sizeof(float)));
-  CNRT_CHECK(cnrtHostMalloc((void**)&(fft_plan->dft_matrix_2d ), n[0] * n[0] * 2*sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix),
+                                  n[1] * (n[1] / 2 + 1) * 2 * sizeof(float)));
+        CNRT_CHECK(cnrtHostMalloc((void **)&(fft_plan->dft_matrix_2d),
+                                  n[0] * n[0] * 2 * sizeof(float)));
 
         fftGenerateC2RDftMatrixKernelNoPad<float>((float *)fft_plan->dft_matrix,
                                                   n[1]);
@@ -2553,7 +2582,7 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
   if (fft_plan->fft_type == CNFFT_HALF2COMPLEX_HALF ||
       fft_plan->fft_type == CNFFT_COMPLEX_HALF2HALF ||
       fft_plan->fft_type == CNFFT_COMPLEX_HALF2COMPLEX_HALF) {
-    if ((n[rank-1] & (n[rank-1] - 1)) != 0) {
+    if ((n[rank - 1] & (n[rank - 1] - 1)) != 0) {
       LOG(ERROR) << make_plan_api
                  << ": the signal lengths of half-precision FFT are"
                  << " restriced to power of two only, but now is " << n[0]
@@ -2588,70 +2617,68 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
   VLOG(5) << "into make FFT1d Policy";
   fft_plan->prime = 0;
 
-  if(rank == 1){
-  int n0 = n[0];
-  int r = 0;
-  while (n0 > 1) {
-    for (r = 64; r > 1; r--) {
-      if (n0 % r == 0) {
-        n0 /= r;
+  if (rank == 1) {
+    int n0 = n[0];
+    int r = 0;
+    while (n0 > 1) {
+      for (r = 64; r > 1; r--) {
+        if (n0 % r == 0) {
+          n0 /= r;
+          break;
+        }
+      }
+      if (r == 1) {
+        fft_plan->prime = n0;
         break;
       }
     }
-    if (r == 1) {
-      fft_plan->prime = n0;
-      break;
-    }
-  }
 
-  }else{
-  int n0 = n[0];
-  int n1 = n[1];
-  int r = 0;
-  while (n0 > 1) {
-    for (r = 64; r > 1; r--) {
-      if (n0 % r == 0) {
-        n0 /= r;
+  } else {
+    int n0 = n[0];
+    int n1 = n[1];
+    int r = 0;
+    while (n0 > 1) {
+      for (r = 64; r > 1; r--) {
+        if (n0 % r == 0) {
+          n0 /= r;
+          break;
+        }
+      }
+      if (r == 1) {
+        fft_plan->prime = n0;
         break;
       }
     }
-    if (r == 1) {
-      fft_plan->prime = n0;
-      break;
-    }
-  }
-  while (n1 > 1) {
-    for (r = 64; r > 1; r--) {
-      if (n1 % r == 0) {
-        n1 /= r;
+    while (n1 > 1) {
+      for (r = 64; r > 1; r--) {
+        if (n1 % r == 0) {
+          n1 /= r;
+          break;
+        }
+      }
+      if (r == 1) {
+        fft_plan->prime = n1;
         break;
       }
     }
-    if (r == 1) {
-      fft_plan->prime = n1;
-      break;
-    }
   }
-
-  } 
-  if(fft_plan->prime > 0 && rank == 2 ){
-      LOG(ERROR) << make_plan_api
-                 << ": Only supports FFT2d sizes with factors"
-                 << " decomposed within the range of 2 to 64"
-                 << ".";
-      return MLUOP_STATUS_NOT_SUPPORTED;
-
+  if (fft_plan->prime > 0 && rank == 2) {
+    LOG(ERROR) << make_plan_api << ": Only supports FFT2d sizes with factors"
+               << " decomposed within the range of 2 to 64"
+               << ".";
+    return MLUOP_STATUS_NOT_SUPPORTED;
   }
-  printf("n[0]:%d, fft_plan->prime:%d\n",n[0], fft_plan->prime);
-  printf("fft_type:%d, rank:%d, batch:%d\n",fft_plan->fft_type, rank, fft_plan->batch);
-  printf("istride:%d, ostride:%d, in[0]:%d, out[0]:%d, idist:%d, odist:%d\n",fft_plan->istride,
-  fft_plan->ostride,  fft_plan->inembed[0], fft_plan->onembed[0], fft_plan->idist, fft_plan->odist);
-  if(fft_plan->fft_type== CNFFT_HALF2COMPLEX_HALF||
-    fft_plan->fft_type== CNFFT_COMPLEX_HALF2HALF||
-    fft_plan->fft_type==  CNFFT_COMPLEX_HALF2COMPLEX_HALF||
-    n[0]==1 ){
-      fft_plan->prime =1;
-    }
+  printf("n[0]:%d, fft_plan->prime:%d\n", n[0], fft_plan->prime);
+  printf("fft_type:%d, rank:%d, batch:%d\n", fft_plan->fft_type, rank,
+         fft_plan->batch);
+  printf("istride:%d, ostride:%d, in[0]:%d, out[0]:%d, idist:%d, odist:%d\n",
+         fft_plan->istride, fft_plan->ostride, fft_plan->inembed[0],
+         fft_plan->onembed[0], fft_plan->idist, fft_plan->odist);
+  if (fft_plan->fft_type == CNFFT_HALF2COMPLEX_HALF ||
+      fft_plan->fft_type == CNFFT_COMPLEX_HALF2HALF ||
+      fft_plan->fft_type == CNFFT_COMPLEX_HALF2COMPLEX_HALF || n[0] == 1) {
+    fft_plan->prime = 1;
+  }
   /*
    * decision part
    */
@@ -2739,46 +2766,6 @@ mluOpStatus_t MLUOP_WIN_API mluOpDestroyFFTPlan(mluOpFFTPlan_t fft_plan) {
                    mluOpDestroyTensorDescriptor(fft_plan->output_desc) ==
                        MLUOP_STATUS_SUCCESS);
   }
-  //if (fft_plan->factors != NULL) {
-  //  delete fft_plan->factors;
-  //}
-
-  //if (fft_plan->factors_2d != NULL) {
-  //  delete fft_plan->factors_2d;
-  //}
-  
-
-  //if (fft_plan->twiddles != NULL) {
-  //  delete (char *)fft_plan->twiddles;
-  //}
-
-  //if (fft_plan->twiddles_inv != NULL) {
-  //  delete (char *)fft_plan->twiddles_inv;
-  //}
-
-  //if (fft_plan->twiddles_2d != NULL) {
-  //  delete (char *)fft_plan->twiddles_2d;
-  //}
-
-  //if (fft_plan->twiddles_inv_2d != NULL) {
-  //  delete (char *)fft_plan->twiddles_inv_2d;
-  //}
-
-  //if (fft_plan->dft_matrix != NULL) {
-  //  delete (char *)fft_plan->dft_matrix;
-  //}
-
-  //if (fft_plan->dft_matrix_2d != NULL) {
-  //  delete (char *)fft_plan->dft_matrix_2d;
-  //}
-
-  //if (fft_plan->idft_matrix != NULL) {
-  //  delete (char *)fft_plan->idft_matrix;
-  //}
-
-  //if (fft_plan->idft_matrix_2d != NULL) {
-  //  delete (char *)fft_plan->idft_matrix_2d;
-  //}
 
   delete fft_plan;
   return MLUOP_STATUS_SUCCESS;
@@ -2833,9 +2820,12 @@ mluOpStatus_t MLUOP_WIN_API mluOpSetFFTReserveArea(mluOpHandle_t handle,
   return status;
 }
 
-mluOpStatus_t MLUOP_WIN_API mluOpExecFFT(
-    mluOpHandle_t handle, const mluOpFFTPlan_t fft_plan, const void *input,
-    const float scale_factor, void *workspace, void *output, const int direction) {
+mluOpStatus_t MLUOP_WIN_API mluOpExecFFT(mluOpHandle_t handle,
+                                         const mluOpFFTPlan_t fft_plan,
+                                         const void *input,
+                                         const float scale_factor,
+                                         void *workspace, void *output,
+                                         const int direction) {
   const std::string exec_api = "[mluOpExecFFT]";
   PARAM_CHECK_NE(exec_api, handle, NULL);
   PARAM_CHECK_NE(exec_api, fft_plan, NULL);

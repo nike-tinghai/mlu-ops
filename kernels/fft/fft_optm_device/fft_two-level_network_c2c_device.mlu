@@ -29,18 +29,15 @@
 #include "kernels/fft/fft_optm_device/fft_butterfly_ops.h"
 #include "kernels/fft/fft_optm_device/fft_c2c_stockham_gdram.h"
 
-__nram__ char
-    nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
+__nram__ char nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
 
 __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
 // Kernel function for 1D FFT butterfly operations on rows.
-__mlu_global__ void MLUKernelFFT1dButterflyRow(void *input, void *output,
-                                               int *factors, void *twiddles,
-                                               void *twiddles_end,
-                                               void *dft_matrix, void *buffer,
-                                               const int batch, const int fft_flag,
-                                               const int direction, const int dtype_size) {
+__mlu_global__ void MLUKernelFFT1dButterflyRow(
+    void *input, void *output, int *factors, void *twiddles, void *twiddles_end,
+    void *dft_matrix, void *buffer, const int batch, const int fft_flag,
+    const int direction, const int dtype_size) {
   switch (dtype_size) {
     case (MLUOP_DTYPE_COMPLEX_FLOAT):
     case (MLUOP_DTYPE_FLOAT): {
@@ -66,8 +63,8 @@ __mlu_global__ void MLUKernelFFT1dButterflyRow(void *input, void *output,
 // Kernel function for 1D FFT butterfly operations on columns.
 __mlu_global__ void MLUKernelFFT1dButterflyColumn(
     void *input, void *output, int *factors, void *twiddles, void *twiddles_end,
-    void *dft_matrix, void *buffer, const int batch, const int fft_flag, const int direction,
-    const int dtype_size, const int nb) {
+    void *dft_matrix, void *buffer, const int batch, const int fft_flag,
+    const int direction, const int dtype_size, const int nb) {
   switch (dtype_size) {
     case (MLUOP_DTYPE_COMPLEX_FLOAT):
     case (MLUOP_DTYPE_FLOAT): {

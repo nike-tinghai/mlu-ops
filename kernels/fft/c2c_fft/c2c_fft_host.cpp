@@ -590,16 +590,17 @@ mluOpStatus_t setFFT1dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
                                FFT_MAXFACTORS * sizeof(int), handle->queue,
                                cnrtMemcpyHostToDev));
     CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
-                               twiddles_size, handle->queue, cnrtMemcpyHostToDev));
+                               twiddles_size, handle->queue,
+                               cnrtMemcpyHostToDev));
     CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix,
-                               fft_plan->dft_matrix, DFT_TABLE_SIZE, handle->queue,
-                               cnrtMemcpyHostToDev));
+                               fft_plan->dft_matrix, DFT_TABLE_SIZE,
+                               handle->queue, cnrtMemcpyHostToDev));
     CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles_inv,
-                               fft_plan->twiddles_inv, twiddles_size, handle->queue,
-                               cnrtMemcpyHostToDev));
+                               fft_plan->twiddles_inv, twiddles_size,
+                               handle->queue, cnrtMemcpyHostToDev));
     CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.idft_matrix,
-                               fft_plan->idft_matrix, DFT_TABLE_SIZE, handle->queue,
-                               cnrtMemcpyHostToDev));
+                               fft_plan->idft_matrix, DFT_TABLE_SIZE,
+                               handle->queue, cnrtMemcpyHostToDev));
     CNRT_CHECK(cnrtFreeHost(fft_plan->factors));
     CNRT_CHECK(cnrtFreeHost(fft_plan->twiddles));
     CNRT_CHECK(cnrtFreeHost(fft_plan->dft_matrix));
@@ -667,16 +668,18 @@ mluOpStatus_t setFFT2dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
     reservespace_offset += factors_size;
 
     CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.factors, fft_plan->factors,
-                               factors_size, handle->queue, cnrtMemcpyHostToDev));
-    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.factors_2d,
-                               fft_plan->factors_2d, factors_size, handle->queue,
+                               factors_size, handle->queue,
                                cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.factors_2d,
+                               fft_plan->factors_2d, factors_size,
+                               handle->queue, cnrtMemcpyHostToDev));
 
     CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles, fft_plan->twiddles,
-                               twiddles_size, handle->queue, cnrtMemcpyHostToDev));
-    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix,
-                               fft_plan->dft_matrix, DFT_TABLE_SIZE, handle->queue,
+                               twiddles_size, handle->queue,
                                cnrtMemcpyHostToDev));
+    CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix,
+                               fft_plan->dft_matrix, DFT_TABLE_SIZE,
+                               handle->queue, cnrtMemcpyHostToDev));
 
     CNRT_CHECK(cnrtFreeHost(fft_plan->factors));
     CNRT_CHECK(cnrtFreeHost(fft_plan->factors_2d));
@@ -697,11 +700,11 @@ mluOpStatus_t setFFT2dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
       reservespace_offset += DFT_TABLE_SIZE;
 
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles_2d,
-                                 fft_plan->twiddles_2d, twiddles_size_2d, handle->queue,
-                                 cnrtMemcpyHostToDev));
+                                 fft_plan->twiddles_2d, twiddles_size_2d,
+                                 handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix_2d,
-                                 fft_plan->dft_matrix_2d, DFT_TABLE_SIZE, handle->queue,
-                                 cnrtMemcpyHostToDev));
+                                 fft_plan->dft_matrix_2d, DFT_TABLE_SIZE,
+                                 handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtFreeHost(fft_plan->twiddles_2d));
       CNRT_CHECK(cnrtFreeHost(fft_plan->dft_matrix_2d));
     } else if (fft_plan->fft_type == CNFFT_COMPLEX_HALF2HALF ||
@@ -761,23 +764,23 @@ mluOpStatus_t setFFT2dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
       reservespace_offset += DFT_TABLE_SIZE;
 
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles_2d,
-                                 fft_plan->twiddles_2d, twiddles_size_2d, handle->queue,
-                                 cnrtMemcpyHostToDev));
+                                 fft_plan->twiddles_2d, twiddles_size_2d,
+                                 handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix_2d,
-                                 fft_plan->dft_matrix_2d, DFT_TABLE_SIZE, handle->queue,
-                                 cnrtMemcpyHostToDev));
+                                 fft_plan->dft_matrix_2d, DFT_TABLE_SIZE,
+                                 handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles_inv_2d,
                                  fft_plan->twiddles_inv_2d, twiddles_size_2d,
                                  handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.twiddles_inv,
-                                 fft_plan->twiddles_inv, twiddles_size, handle->queue,
-                                 cnrtMemcpyHostToDev));
+                                 fft_plan->twiddles_inv, twiddles_size,
+                                 handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.idft_matrix_2d,
                                  fft_plan->idft_matrix_2d, DFT_TABLE_SIZE,
                                  handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.idft_matrix,
-                                 fft_plan->idft_matrix, DFT_TABLE_SIZE, handle->queue,
-                                 cnrtMemcpyHostToDev));
+                                 fft_plan->idft_matrix, DFT_TABLE_SIZE,
+                                 handle->queue, cnrtMemcpyHostToDev));
       CNRT_CHECK(cnrtFreeHost(fft_plan->twiddles_2d));
       CNRT_CHECK(cnrtFreeHost(fft_plan->dft_matrix_2d));
       CNRT_CHECK(cnrtFreeHost(fft_plan->twiddles_inv_2d));
@@ -800,9 +803,10 @@ mluOpStatus_t setFFT2dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
             (uint8_t *)fft_plan->reservespace_addr + reservespace_offset;
         reservespace_offset += CPX_TYPE_SIZE * _n0 * _n0;
 
-        CNRT_CHECK(cnrtMemcpyAsync(
-            fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
-            CPX_TYPE_SIZE * (_n1 / 2 + 1) * _n1, handle->queue, cnrtMemcpyHostToDev));
+        CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix,
+                                   fft_plan->dft_matrix,
+                                   CPX_TYPE_SIZE * (_n1 / 2 + 1) * _n1,
+                                   handle->queue, cnrtMemcpyHostToDev));
         CNRT_CHECK(cnrtMemcpyAsync(
             fft_plan->mlu_addrs.dft_matrix_2d, fft_plan->dft_matrix_2d,
             CPX_TYPE_SIZE * _n0 * _n0, handle->queue, cnrtMemcpyHostToDev));
@@ -829,19 +833,17 @@ mluOpStatus_t setFFT2dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
             (uint8_t *)fft_plan->reservespace_addr + reservespace_offset;
         reservespace_offset += CPX_TYPE_SIZE * _n0 * _n0;
 
-        CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix,
-                                   fft_plan->dft_matrix,
-                                   CPX_TYPE_SIZE * _n1 * _n1, handle->queue,
-                                   cnrtMemcpyHostToDev));
         CNRT_CHECK(cnrtMemcpyAsync(
-            fft_plan->mlu_addrs.dft_matrix_2d, fft_plan->dft_matrix_2d, 
+            fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
+            CPX_TYPE_SIZE * _n1 * _n1, handle->queue, cnrtMemcpyHostToDev));
+        CNRT_CHECK(cnrtMemcpyAsync(
+            fft_plan->mlu_addrs.dft_matrix_2d, fft_plan->dft_matrix_2d,
 
-            CPX_TYPE_SIZE * _n0 * _n0, handle->queue,cnrtMemcpyHostToDev));
+            CPX_TYPE_SIZE * _n0 * _n0, handle->queue, cnrtMemcpyHostToDev));
 
-        CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.idft_matrix,
-                                   fft_plan->idft_matrix,
-                                   CPX_TYPE_SIZE * _n1 * _n1, handle->queue,
-                                   cnrtMemcpyHostToDev));
+        CNRT_CHECK(cnrtMemcpyAsync(
+            fft_plan->mlu_addrs.idft_matrix, fft_plan->idft_matrix,
+            CPX_TYPE_SIZE * _n1 * _n1, handle->queue, cnrtMemcpyHostToDev));
         CNRT_CHECK(cnrtMemcpyAsync(
             fft_plan->mlu_addrs.idft_matrix_2d, fft_plan->idft_matrix_2d,
             CPX_TYPE_SIZE * _n0 * _n0, handle->queue, cnrtMemcpyHostToDev));
@@ -862,9 +864,10 @@ mluOpStatus_t setFFT2dReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
             (uint8_t *)fft_plan->reservespace_addr + reservespace_offset;
         reservespace_offset += CPX_TYPE_SIZE * _n0 * _n0;
 
-        CNRT_CHECK(cnrtMemcpyAsync(
-            fft_plan->mlu_addrs.dft_matrix, fft_plan->dft_matrix,
-            CPX_TYPE_SIZE * (_n1 / 2 + 1) * _n1, handle->queue, cnrtMemcpyHostToDev));
+        CNRT_CHECK(cnrtMemcpyAsync(fft_plan->mlu_addrs.dft_matrix,
+                                   fft_plan->dft_matrix,
+                                   CPX_TYPE_SIZE * (_n1 / 2 + 1) * _n1,
+                                   handle->queue, cnrtMemcpyHostToDev));
         CNRT_CHECK(cnrtMemcpyAsync(
             fft_plan->mlu_addrs.dft_matrix_2d, fft_plan->dft_matrix_2d,
             CPX_TYPE_SIZE * _n0 * _n0, handle->queue, cnrtMemcpyHostToDev));
