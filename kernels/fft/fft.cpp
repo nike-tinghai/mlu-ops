@@ -1091,7 +1091,6 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
     }
     section_num = n;
     stage_num++;
-    printf("stage_num:%d, r:%d\n\n", stage_num, r);
 
     facbuf[5 * stage_num + 0] = r;
     facbuf[5 * stage_num + 1] = section_num;
@@ -2668,10 +2667,6 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
                << ".";
     return MLUOP_STATUS_NOT_SUPPORTED;
   }
-  printf("n[0]:%d, fft_plan->prime:%d\n", n[0], fft_plan->prime);
-  printf("fft_type:%d, rank:%d, batch:%d\n", fft_plan->fft_type, rank,
-         fft_plan->batch);
-  printf("istride:%d, ostride:%d, in[0]:%d, out[0]:%d, idist:%d, odist:%d\n",
          fft_plan->istride, fft_plan->ostride, fft_plan->inembed[0],
          fft_plan->onembed[0], fft_plan->idist, fft_plan->odist);
   if (fft_plan->fft_type == CNFFT_HALF2COMPLEX_HALF ||
@@ -2725,8 +2720,6 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
                                          output_desc, rank, n);
 
         } else {
-          printf("makeFFT1dPolicy\n");
-
           status = makeFFT1dPolicy(handle, fft_plan);
         }
 
