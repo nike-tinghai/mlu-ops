@@ -2667,8 +2667,6 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
                << ".";
     return MLUOP_STATUS_NOT_SUPPORTED;
   }
-         fft_plan->istride, fft_plan->ostride, fft_plan->inembed[0],
-         fft_plan->onembed[0], fft_plan->idist, fft_plan->odist);
   if (fft_plan->fft_type == CNFFT_HALF2COMPLEX_HALF ||
       fft_plan->fft_type == CNFFT_COMPLEX_HALF2HALF ||
       fft_plan->fft_type == CNFFT_COMPLEX_HALF2COMPLEX_HALF || n[0] == 1) {
