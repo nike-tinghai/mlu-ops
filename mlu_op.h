@@ -14302,7 +14302,7 @@ mluOpSetFFTReserveArea(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan, void *rese
  * - None.
  *
  * @par Scale Limitation
- * - Currently, FFT supports any combination of powers of 2 from 2 to 64, as well as 2^m*L.
+ * - Currently, FFT supports any combination of powers of i (i from 2 to 64), as well as 2^m*L.
  *
  * @par API Dependency
  * - Before calling this function, you need to call the ::mluOpCreateFFTPlan
