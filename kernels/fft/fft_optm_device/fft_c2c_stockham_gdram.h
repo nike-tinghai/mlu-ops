@@ -322,8 +322,8 @@ __mlu_func__ void computeMutiStageOnchipColumn(
       int small_twiddles_size = factors[small_factors_offset + 2];
       const DT *small_twiddles = _twiddles + tw_offset * 2;
       max_para_batch = factors[small_factors_offset + 3] > (t_end - t_start)
-                           ? batch
-                           : (t_end - t_start);
+                           ? (t_end - t_start)
+                           : factors[small_factors_offset + 3];
       for (int t = t_start; t < t_end; t += max_para_batch) {
         int para_batch =
             (max_para_batch < (t_end - t)) ? max_para_batch : (t_end - t);
