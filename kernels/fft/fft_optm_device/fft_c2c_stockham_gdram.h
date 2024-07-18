@@ -321,9 +321,17 @@ __mlu_func__ void computeMutiStageOnchipColumn(
       int tw_offset = factors[small_factors_offset + 1];
       int small_twiddles_size = factors[small_factors_offset + 2];
       const DT *small_twiddles = _twiddles + tw_offset * 2;
-      max_para_batch = factors[small_factors_offset + 3] > (t_end - t_start)
+      int min_max_para_batch = __INT_MAX__;
+      for(int stage_id = 1; stage_id <= _stage_count; stage_id++) {
+        int cur_para_num = factors[factors[5*stage_id + 4] + 3];
+        min_max_para_batch =  (min_max_para_batch < cur_para_num ) ? min_max_para_batch :cur_para_num;
+
+      }
+
+      max_para_batch = min_max_para_batch  > (t_end - t_start)
                            ? (t_end - t_start)
-                           : factors[small_factors_offset + 3];
+                           : min_max_para_batch;
+
       for (int t = t_start; t < t_end; t += max_para_batch) {
         int para_batch =
             (max_para_batch < (t_end - t)) ? max_para_batch : (t_end - t);
@@ -374,10 +382,10 @@ __mlu_func__ void computeMutiStageOnchipColumn(
             small_twiddles_size, sram_dftmtx, section_num, butterfly_num,
             in_stride, (void *)nram_buf, small_factors, nfft, direction, 0,
             para_batch, nb, load_once_twiddles);
-        FFT_SWAP_PTR(extra_buffer, buffer);
       }
     }
     twiddles += butterfly_num * (radix - 1) * 2;
+    FFT_SWAP_PTR(extra_buffer, buffer);
   }
 
   {

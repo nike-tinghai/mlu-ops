@@ -1047,6 +1047,11 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
       // Smaller base factorization (e.g., 16, 8) is slower but more accurate.
       switch (_n) {
         // For the case where _n is 2048, use smaller bases for factorization.
+        case 1024:
+          if (n % 32  == 0) {
+            r = 32;
+          }break;
+
         case 2048:
           if (n % 16 == 0) {
             r = 16;
@@ -1054,6 +1059,11 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
             r = 8;
           }
           break;
+
+        case 4096:
+          if (n % 16  == 0) {
+            r = 16;
+          }break;
 
         default:
           // For other cases, use larger bases for factorization.
@@ -1706,14 +1716,6 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
           max_parallel_num--;
         }
 
-        // if (nram_space_remain >
-        //        (nram_space_need * max_parallel_num + space_need_matmul) &&
-        //    ((max_parallel_num * large_radix % 64) == 0 ||
-        //     max_parallel_num < 64)) {
-        //  break;
-        //} else {
-        //  max_parallel_num--;
-        //}
       }
     }; break;
   }
@@ -1881,8 +1883,8 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanC2C1D(
     const int rank, const int *n) {
   fft_plan->is_batch_contiguous =
       (fft_plan->idist == 1 && fft_plan->odist == 1 &&
-       fft_plan->inembed[0] == fft_plan->batch &&
-       fft_plan->onembed[0] == fft_plan->batch);
+       fft_plan->istride == fft_plan->batch &&
+       fft_plan->ostride == fft_plan->batch);
   mluOpAllocateC2C1D(handle, fft_plan, input_desc, output_desc, n[0]);
   int is_row_major = !fft_plan->is_batch_contiguous;
   fftTwoStepFactor(fft_plan, n[0], fft_plan->factors, is_row_major,
