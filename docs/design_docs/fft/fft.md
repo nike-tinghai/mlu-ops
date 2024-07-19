@@ -120,13 +120,9 @@ $$
 | handle      |MLU-OPS句柄，保存运行上下文信息      | 输入              |     mluOpHandle_t   | /        | 无               |
 | fft_plan |执行计划参数的信息描述      | 输入              |      mluOpFFTPlan_t       | /        | 暂时不支持大质数 |
 | input      |指向输入数据地址的指针      | 输入              | half, float， complex_half, complex_float | ARRAY    | 无               |
-| output      |指向输出数据地址的指针      | 输出             | half, float， complex_half, complex_float | ARRAY    | 无               |
-| rank      |  维度    | 输入             | unsigned int | /    | 无               |
-| n      |   fft size   | 输入             | unsigned int | ARRAY    | 无               |
-| reservespace      | 输入reservespace数据的mlu地址指针     | 输入             | half, float | /    | 无               |
-| reservespace_size      |输入reservespace的空间大小     | 输入             | size_t | /    | 无               |
+| scale_factor      |   比例因子，用于放大缩小一定比例   | 输入             | unsigned int | /    | 无               |
 | workspace      |输入workspace数据的mlu地址指针      | 输入             | half, float | /    | 无               |
-| workspace_size      | 输入workspace的空间大小     | 输入             | size_t | /    | 无               |
+| output      |指向输出数据地址的指针      | 输出             | half, float， complex_half, complex_float | ARRAY    | 无               |
 | direction      |   FFT正逆方向   | 输入             | FORWARD/BACKWARD | /    | 无               |
 
 ### 1.4 算子限制
