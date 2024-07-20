@@ -390,7 +390,6 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrixKernel(DT *dft_matrix,
                                                        const int dir) {
   int j, k;
   DT phase;
-  // const int k_align = 64;
   const int K_num = 64 / sizeof(DT);
   const int align_K = K_num * ((radix + K_num - 1) / K_num);
   const int sign = (dir == FFT_FORWARD) ? -1 : 1;
@@ -489,7 +488,6 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrix(void *&_dft_matrix,
   for (int i = 0; i < MAX_DFT_MATRIX_NR; i++) {
     dft_matrix_table[i] = {-1, -1};
   }
-  // dft_matrix_table =
   int stage_count = factors[0];
   int cur_large_radix, cur_small_radix, section_num, butterfly_num,
       loop_stage;  // current radix
@@ -498,12 +496,8 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrix(void *&_dft_matrix,
 
   // initialize offset as the end of table
   // transform  dft_table_entry to complex DT
-  // int cur_offset =
-  //     (MAX_DFT_MATRIX_NR + 1) * sizeof(dft_table_entry) / (sizeof(DT) * 2);
-
   int cur_offset = ((DT *)dft_matrix - (DT *)_dft_matrix) / 2;
 
-  // dft_matrix += cur_offset * 2;
   int cur_table_entry = 0;
   for (loop_stage = 1; loop_stage <= stage_count; loop_stage++) {
     cur_large_radix = factors[5 * loop_stage];
@@ -518,7 +512,6 @@ mluOpStatus_t MLUOP_WIN_API fftGenerateDftMatrix(void *&_dft_matrix,
 
       for (int entry = 0;; entry++) {
         if (dft_matrix_table[entry].radix == -1) {
-          // DT *dft_matrix_real = dft_matrix;
           align_K = K_num * ((cur_small_radix + K_num - 1) / K_num);
           fftGenerateDftMatrixKernel<DT>(dft_matrix, cur_small_radix, dir);
           dft_matrix += cur_small_radix * align_K * 2;
@@ -981,16 +974,6 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
           }
           break;
 
-          // case 14000:
-          //   if (n % 40 == 0) {
-          //     r = 40;
-          //   } else if ((n % 25) == 0) {
-          //     r = 25;
-          //   } else if ((n % 14) == 0) {
-          //     r = 14;
-          //   }
-          //   break;
-
         case 14000:
           if (n % 350 == 0) {
             r = 350;
@@ -1048,9 +1031,10 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
       switch (_n) {
         // For the case where _n is 2048, use smaller bases for factorization.
         case 1024:
-          if (n % 32  == 0) {
+          if (n % 32 == 0) {
             r = 32;
-          }break;
+          }
+          break;
 
         case 2048:
           if (n % 16 == 0) {
@@ -1061,9 +1045,10 @@ mluOpStatus_t MLUOP_WIN_API fftTwoStepFactor(mluOpFFTPlan_t fft_plan,
           break;
 
         case 4096:
-          if (n % 16  == 0) {
+          if (n % 16 == 0) {
             r = 16;
-          }break;
+          }
+          break;
 
         default:
           // For other cases, use larger bases for factorization.
@@ -1150,7 +1135,6 @@ mluOpStatus_t MLUOP_WIN_API searchLargeRadix(mluOpFFTPlan_t fft_plan,
         cur_stage_num = stage_num + 1;
 
         facbuf[4 * cur_stage_num + 0] = small_radix;
-        // facbuf[4 * cur_stage_num + 1] = n / small_radix;
         for (int stage_id = 1; stage_id <= cur_stage_num; stage_id++) {
           if (stage_id == 1) {
             facbuf[4 * stage_id + 1] =
@@ -1273,37 +1257,28 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = section_num * 2;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          // align_N = para_num;
           align_N = 64 * ((para_num + 64 - 1) / 64);
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
               2 * TYPE_SIZE;
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         } else {
           para_num = butterfly_num * section_num;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
           align_N = 64 * ((para_num + 64 - 1) / 64);
-          // align_N = para_num;
 
           space_need_matmul_tmp = 0;
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (para_num * radix * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (align_K * 4 * align_N * TYPE_SIZE);
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         }
 
-        // nram_space_need_dftmtx_align =
-        //     (align_K != radix) ? (align_M * 64 * 2 * TYPE_SIZE) : 0;
         space_need_matmul = (space_need_matmul > space_need_matmul_tmp)
                                 ? space_need_matmul
                                 : space_need_matmul_tmp;
       }
 
-      // nram_space_need += space_need_matmul;
       nram_space_need_tw = _n * 2 * TYPE_SIZE;  // complex
       const int nram_space_remain =
           (nram_space_size - nram_space_need_tw - nram_space_need_dftmtx);
@@ -1345,7 +1320,6 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
         nram_space_need += _n * 2 * TYPE_SIZE;  // complex
         // // _nram_tw
         nram_space_need += (!is_row_major) ? (_n * 2 * TYPE_SIZE) : 0;
-        // nram_space_need += _n * 2 * TYPE_SIZE;  // complex
       }
 
       space_need_matmul = 0;
@@ -1361,37 +1335,28 @@ mluOpStatus_t MLUOP_WIN_API calParallelNumLowBound(mluOpFFTPlan_t fft_plan,
           para_num = section_num * 2;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          // align_N = para_num;
           align_N = 64 * ((para_num + 64 - 1) / 64);
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
               2 * TYPE_SIZE;
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         } else {
           para_num = butterfly_num * section_num;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
           align_N = 64 * ((para_num + 64 - 1) / 64);
-          // align_N = para_num;
 
           space_need_matmul_tmp = 0;
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (para_num * radix * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (align_K * 4 * align_N * TYPE_SIZE);
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         }
 
-        // nram_space_need_dftmtx_align =
-        //     (align_K != radix) ? (align_M * 64 * 2 * TYPE_SIZE) : 0;
         space_need_matmul = (space_need_matmul > space_need_matmul_tmp)
                                 ? space_need_matmul
                                 : space_need_matmul_tmp;
       }
 
-      // nram_space_need += space_need_matmul;
       nram_space_need_tw = _n * 2 * TYPE_SIZE;  // complex
       const int nram_space_remain =
           (nram_space_size - nram_space_need_tw - nram_space_need_dftmtx);
@@ -1424,7 +1389,6 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
   int nram_space_need_dftmtx = (stage == 1)
                                    ? max_radix * max_radix * 2 * 2
                                    : max_radix * max_radix * 2;  // complex
-  // int nram_space_need_dftmtx_align = 0;
   size_t space_need_matmul = 0;
   size_t space_need_matmul_tmp = 0;
   int small_stage_num = facbuf[0];
@@ -1471,9 +1435,8 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
         nram_space_need += large_radix * 2 * TYPE_SIZE;  // complex
         // nram_para_load_tw
         nram_space_need += large_radix * 4 * TYPE_SIZE;  // complex
-        // // _nram_tw
+        // _nram_tw
         nram_space_need += large_radix * 5 * TYPE_SIZE;  // complex
-        // nram_space_need += large_radix* 2 * TYPE_SIZE;  // complex
       }
 
       space_need_matmul = 0;
@@ -1490,18 +1453,14 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
           align_N = para_num;
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
 
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
               2 * TYPE_SIZE;
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         } else {
           para_num = butterfly_num * section_num;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
           align_N = para_num;
 
           space_need_matmul_tmp = 0;
@@ -1509,26 +1468,18 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (para_num * radix * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (align_K * 4 * align_N * TYPE_SIZE);
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         }
 
-        // nram_space_need_dftmtx_align =
-        //     (align_K != radix) ? (align_M * 64 * 2 * TYPE_SIZE) : 0;
         space_need_matmul = (space_need_matmul > space_need_matmul_tmp)
                                 ? space_need_matmul
                                 : space_need_matmul_tmp;
       }
 
-      // nram_space_need += space_need_matmul;
       nram_space_need_tw = large_radix * 2 * TYPE_SIZE;  // complex
       const size_t nram_space_remain =
           (nram_space_size - nram_space_need_tw - nram_space_need_dftmtx);
       max_parallel_num =
           nram_space_remain / (nram_space_need + space_need_matmul);
-
-      // _nram_tw
-      // calParallelNumLowBound(fft_plan, facbuf, stage, max_parallel_num);
 
       while (1) {
         space_need_matmul = 0;
@@ -1571,25 +1522,12 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
         } else {
           max_parallel_num--;
         }
-
-        // if (nram_space_remain >
-        //        (nram_space_need * max_parallel_num + space_need_matmul) &&
-        //    ((max_parallel_num * large_radix % 64) == 0 ||
-        //     max_parallel_num < 64)) {
-        //  break;
-        //} else {
-        //  max_parallel_num--;
-        //}
       }
     }; break;
     case CNFFT_COMPLEX_HALF2HALF:
     case CNFFT_COMPLEX_FLOAT2FLOAT:
     case CNFFT_COMPLEX_HALF2COMPLEX_HALF:
     case CNFFT_COMPLEX_FLOAT2COMPLEX_FLOAT: {
-      // if(large_radix==6000|| large_radix==7000){
-      //  max_parallel_num = 1;
-      //  break;
-      //}
       TYPE_SIZE = 4;
       K_num = 64 / TYPE_SIZE;
 
@@ -1635,18 +1573,14 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
           align_N = para_num;
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
 
           space_need_matmul_tmp =
               ((align_M * 2 > align_K) ? (align_M * 2) : align_K) * align_N *
               2 * TYPE_SIZE;
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         } else {
           para_num = butterfly_num * section_num;
           align_M = radix;
           align_K = K_num * ((radix + K_num - 1) / K_num);
-          // align_N = 64 * ((para_num + 64 - 1) / 64);
           align_N = para_num;
 
           space_need_matmul_tmp = 0;
@@ -1654,25 +1588,18 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
           space_need_matmul_tmp += (align_N * align_K * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (para_num * radix * 2 * TYPE_SIZE);
           space_need_matmul_tmp += (align_K * 4 * align_N * TYPE_SIZE);
-          // nram_space_need_dftmtx_align =
-          //     (align_K != radix) ? (align_M * align_K * 2 * TYPE_SIZE) : 0;
         }
 
-        // nram_space_need_dftmtx_align =
-        //     (align_K != radix) ? (align_M * 64 * 2 * TYPE_SIZE) : 0;
         space_need_matmul = (space_need_matmul > space_need_matmul_tmp)
                                 ? space_need_matmul
                                 : space_need_matmul_tmp;
       }
 
-      // nram_space_need += space_need_matmul;
       nram_space_need_tw = large_radix * 2 * TYPE_SIZE;  // complex
       const int nram_space_remain =
           (nram_space_size - nram_space_need_tw - nram_space_need_dftmtx);
       max_parallel_num =
           nram_space_remain / (nram_space_need + space_need_matmul);
-      // _nram_tw
-      // calParallelNumLowBound(fft_plan, facbuf, stage, max_parallel_num);
 
       while (1) {
         space_need_matmul = 0;
@@ -1715,7 +1642,6 @@ mluOpStatus_t MLUOP_WIN_API setMaxParallelNum(mluOpFFTPlan_t fft_plan,
         } else {
           max_parallel_num--;
         }
-
       }
     }; break;
   }
@@ -2399,11 +2325,6 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
                    ": batch size mismatch.");
   }
 
-  // if (rank == 2) {
-  //   fft_plan->batch_2d = input_desc->dims[2];
-  //   fft_plan->batch = input_desc->dims[1];
-  // }
-
   // The FFT Struct is designed after cufftXtMakePlanMany.
   // An element of coordinates [z, y, x] in signal number b in the batch will
   // be associated with the following addresses in the memory
@@ -2728,7 +2649,6 @@ mluOpStatus_t MLUOP_WIN_API mluOpMakeFFTPlanMany(
       } else if (rank == 2) {
         VLOG(5) << "into make FFT2d Policy";
 
-        // status = makeFFT1dPolicy(handle, fft_plan);
         // C2C 1D
         status = mluOpMakeFFTPlanC2C2D(handle, fft_plan, input_desc,
                                        output_desc, rank, n);

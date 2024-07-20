@@ -1568,9 +1568,7 @@ static mluOpStatus_t policyFunc(mluOpHandle_t handle, cnrtDim3_t *k_dim,
   *k_type = CNRT_FUNC_TYPE_UNION1;
   k_dim->x = handle->core_num_per_cluster *
              mluop::runtime::getClusterLimitCapability(handle);
-  // k_dim->x = 4;
   k_dim->y = 1;
-  // k_dim->y = 1;
   k_dim->z = 1;
   return MLUOP_STATUS_SUCCESS;
 }
@@ -1958,7 +1956,6 @@ mluOpStatus_t computeFFT2dMatMulColumn(mluOpHandle_t handle,
   void *out_addr = fft_plan->mlu_addrs.buffer_out;
   // W[n0 * c][n0] * In[n0][n1 * batch]
   const int m = n0 * 2, k = n0, n = n1 * batch * 2;
-  // mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
 
   // create descriptor
   mluOpTensorDescriptor_t a_desc = nullptr;
@@ -2072,7 +2069,6 @@ mluOpStatus_t computeFFT2dMatMulRow(mluOpHandle_t handle,
   mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
 
   mluOpDataType_t in_e_dtype = fft_plan->execution_dtype;
-  // mluOpDataType_t in_e_dtype = MLUOP_DTYPE_FLOAT;
   int batch = fft_plan->batch;
   int n0 = fft_plan->n[0];
   int n1 = fft_plan->n[1];
@@ -2085,7 +2081,6 @@ mluOpStatus_t computeFFT2dMatMulRow(mluOpHandle_t handle,
   void *out_addr = fft_plan->mlu_addrs.buffer_out;
   // out[n0][n1*2][batch*2] = W[n1 * 2][n1] * In[n0][n1][batch *2]
   const int m = n1 * 2, k = n1, n = batch * 2;
-  // mluOpStatus_t status = MLUOP_STATUS_SUCCESS;
 
   // create descriptor
   mluOpTensorDescriptor_t a_desc = nullptr;

@@ -34,6 +34,7 @@ struct FFT_CPX_T {
     Y = (DT *)((intptr_t)(X) ^ (intptr_t)(Y)); \
     X = (DT *)((intptr_t)(X) ^ (intptr_t)(Y)); \
   }
+
 #define FFT_SWAP_VALUE(X, Y) \
   do {                       \
     int temp = (X);          \

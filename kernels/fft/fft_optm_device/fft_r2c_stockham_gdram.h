@@ -22,9 +22,9 @@
  *************************************************************************/
 #pragma once
 #include "kernels/fft/fft_optm_device/fft_r2c_stockham_nram.h"
+#include "kernels/fft/fft_optm_device/fft_sram_allocate.h"
 
 extern __nram__ char nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
-__mlu_shared__ char sram_buffer[MAX_SRAM_SIZE];
 extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
 // Compute multi-stage FFT from real to complex (R2C) on-chip

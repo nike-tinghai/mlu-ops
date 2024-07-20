@@ -28,10 +28,7 @@
 #include "kernels/fft/fft.h"
 #include "kernels/fft/fft_optm_device/fft_butterfly_ops.h"
 #include "kernels/fft/fft_optm_device/fft_r2c_stockham_gdram.h"
-
-__nram__ char nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
-
-__wram__ char wram_buffer[MAX_WRAM_SIZE];
+#include "kernels/fft/fft_optm_device/fft_nram_wram_allocate.h"
 
 __mlu_global__ void MLUKernelFFT1dButterflyR2C(
     void *input, void *output, int *factors, void *twiddles, void *twiddles_end,

@@ -22,9 +22,9 @@
  *************************************************************************/
 #pragma once
 #include "kernels/fft/fft_optm_device/fft_c2c_stockham_nram.h"
+#include "kernels/fft/fft_optm_device/fft_sram_allocate.h"
 
 extern __nram__ char nram_buffer[MAX_NRAM_SIZE + REM_FOR_STACK - 32 * 1024];
-__mlu_shared__ char sram_buffer[MAX_SRAM_SIZE];
 extern __wram__ char wram_buffer[MAX_WRAM_SIZE];
 
 // Perform C2C in-place network allocation for the row slice on the chip
@@ -322,13 +322,14 @@ __mlu_func__ void computeMutiStageOnchipColumn(
       int small_twiddles_size = factors[small_factors_offset + 2];
       const DT *small_twiddles = _twiddles + tw_offset * 2;
       int min_max_para_batch = __INT_MAX__;
-      for(int stage_id = 1; stage_id <= _stage_count; stage_id++) {
-        int cur_para_num = factors[factors[5*stage_id + 4] + 3];
-        min_max_para_batch =  (min_max_para_batch < cur_para_num ) ? min_max_para_batch :cur_para_num;
-
+      for (int stage_id = 1; stage_id <= _stage_count; stage_id++) {
+        int cur_para_num = factors[factors[5 * stage_id + 4] + 3];
+        min_max_para_batch = (min_max_para_batch < cur_para_num)
+                                 ? min_max_para_batch
+                                 : cur_para_num;
       }
 
-      max_para_batch = min_max_para_batch  > (t_end - t_start)
+      max_para_batch = min_max_para_batch > (t_end - t_start)
                            ? (t_end - t_start)
                            : min_max_para_batch;
 

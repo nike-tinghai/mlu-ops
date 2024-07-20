@@ -777,10 +777,6 @@ __mlu_func__ void computeLargeButterflyOtherstagesR2C(
 
                 __bang_rotate90(nram_out_tmp, nram_out_i, para_ldst_num,
                                 large_radix);
-                //__bang_neg(nram_out_tmp + ((large_radix + 1) / 2) *
-                // para_ldst_num
-                //           , nram_out_tmp + ((large_radix + 1) / 2) *
-                //           para_ldst_num , (large_radix / 2) * para_ldst_num);
                 __bang_mul_scalar(
                     nram_out_tmp + ((large_radix + 1) / 2) * para_ldst_num,
                     nram_out_tmp + ((large_radix + 1) / 2) * para_ldst_num, -1,

@@ -1188,9 +1188,6 @@ mluOpStatus_t execFFTr2c1d(mluOpHandle_t handle, mluOpFFTPlan_t fft_plan,
   cnrtFunctionType_t k_type;
   policyFunc(handle, &k_dim, &k_type);
 
-  // if(fft_plan->twiddles_end != NULL){
-  //  printf("printf1041 fft_plan->twiddles_end != NULL\n");
-  //}
   kernelFFT1dButterflyR2C(k_dim, k_type, handle->queue, fft_plan, RFFT);
 
   return status;
