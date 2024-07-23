@@ -1389,8 +1389,17 @@ static mluOpStatus_t makeIRFFT1dContiguousOutput(mluOpHandle_t handle,
     DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(copy_dst_desc,
                                                  cnnl_copy_dst_desc);
 
-    CALL_CNNL(cnnlCopy(cnnl_handle, cnnl_copy_src_desc, copy_src_addr,
-                       cnnl_copy_dst_desc, output));
+    size_t workspace_size = 0;
+    CALL_CNNL(cnnlGetCopyWorkspaceSize(cnnl_handle, cnnl_copy_src_desc,
+                                      cnnl_copy_dst_desc, &workspace_size));
+
+    void *workspace = nullptr;
+    if (workspace_size > 0) {
+      CNRT_CHECK(cnrtMalloc((void **)&workspace, workspace_size));
+    }
+    CALL_CNNL(cnnlCopy_v2(cnnl_handle, cnnl_copy_src_desc, copy_src_addr,
+                          cnnl_copy_dst_desc, output, workspace,
+                          workspace_size));
 
     DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_copy_src_desc);
     DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_copy_dst_desc);
@@ -1789,8 +1798,17 @@ static mluOpStatus_t makeIRFFT2dContiguousOutput(mluOpHandle_t handle,
     DEFINE_CREATE_AND_SET_CNNL_TENSOR_DESCRIPTOR(copy_dst_desc,
                                                  cnnl_copy_dst_desc);
 
-    CALL_CNNL(cnnlCopy(cnnl_handle, cnnl_copy_src_desc, copy_src_addr,
-                       cnnl_copy_dst_desc, output));
+    size_t workspace_size = 0;
+    CALL_CNNL(cnnlGetCopyWorkspaceSize(cnnl_handle, cnnl_copy_src_desc,
+                                      cnnl_copy_dst_desc, &workspace_size));
+
+    void *workspace = nullptr;
+    if (workspace_size > 0) {
+      CNRT_CHECK(cnrtMalloc((void **)&workspace, workspace_size));
+    }
+    CALL_CNNL(cnnlCopy_v2(cnnl_handle, cnnl_copy_src_desc, copy_src_addr,
+                          cnnl_copy_dst_desc, output, workspace,
+                          workspace_size));
 
     DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_copy_src_desc);
     DESTROY_CNNL_TENSOR_DESCRIPTOR(cnnl_copy_dst_desc);
